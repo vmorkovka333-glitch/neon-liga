@@ -208,7 +208,7 @@
 <div class="screen" id="startscreen" data-screen-label="Главное меню">
   <div class="menucard">
     <h1><span>НЕОН</span>-ЛИГА</h1>
-    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • 3D</div>
+    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V1.3</div>
     <div class="vs">
       <div class="team" style="--c:var(--cyan)"><i></i>НЕОН</div>
       <div class="vsx">VS</div>
@@ -1222,7 +1222,13 @@ function movePlayers(dt) {
         if (!p.slideHit) p.stunT = 0.5;
       }
     } else if (isUser) {
-      if (input.active) { dx = input.x; dz = -input.y; }
+      if (!ball.owner && ball.receiver === p) {
+        // auto-run to meet the incoming pass; stick control resumes on reception
+        dx = ball.pos.x + ball.vel.x*0.25 - p.pos.x;
+        dz = ball.pos.z + ball.vel.z*0.25 - p.pos.z;
+        const dm = Math.hypot(dx,dz);
+        if (dm > 0.3) { dx/=dm; dz/=dm; } else { dx=0; dz=0; }
+      } else if (input.active) { dx = input.x; dz = -input.y; }
     } else {
       dx = p.target.x - p.pos.x; dz = p.target.z - p.pos.z;
       const d = Math.hypot(dx,dz);
@@ -1408,7 +1414,7 @@ function updateBall(dt) {
     if (ball.lastKicker===p && perfNow-ball.kickT < 0.5) continue;
     // keepers claim by horizontal distance (arms reach up), outfielders by true 3D distance
     const d = p.isGK ? Math.hypot(p.pos.x-ball.pos.x, p.pos.z-ball.pos.z) : p.pos.distanceTo(ball.pos);
-    const reach = p.isGK ? (p.diving ? 2.15 : 1.55) : 1.05;
+    const reach = p.isGK ? (p.diving ? 2.15 : 1.55) : (ball.receiver === p ? 1.35 : 1.05);
     const maxH = p.isGK ? 2.35 : 1.3;
     const maxSp = p.isGK ? 50 : 14;
     if (d < reach && ball.pos.y < maxH && hSpeed < maxSp) {
@@ -1417,7 +1423,9 @@ function updateBall(dt) {
   }
   if (taker && taker.isGK && hSpeed > 20) {
     // hard shot: save chance drops with shot speed — identical odds for both keepers
-    const pSave = THREE.MathUtils.clamp(1.7 - hSpeed/30, 0.45, 0.93);
+    // save chance grows with reaction time: point-blank ≈ unstoppable, long range ≈ safe hands
+    const flightT = perfNow - ball.kickT;
+    const pSave = THREE.MathUtils.clamp(flightT*0.75 - 0.05, 0.12, 0.85);
     if (Math.random() > pSave) {
       taker.loseT = 0.35;  // beaten — ball flies past
       taker = null;
