@@ -481,6 +481,7 @@ ballShadow.rotation.x = -Math.PI/2; ballShadow.position.y = 0.025; scene.add(bal
 const ball = {
   pos: ballMesh.position, vel: new THREE.Vector3(),
   owner: null, lastKicker: null, kickT: -9, lastTouchTeam: 0,
+  receiver: null,
 };
 ball.pos.set(0, BALL_R, 0);
 
@@ -880,6 +881,7 @@ const V1 = new THREE.Vector3(), V2 = new THREE.Vector3(), V3 = new THREE.Vector3
 
 function doKick(p, vel) {
   ball.owner = null;
+  ball.receiver = null;
   ball.vel.copy(vel);
   ball.lastKicker = p; ball.kickT = perfNow;
   ball.lastTouchTeam = p.team;
@@ -897,6 +899,7 @@ function executePass(p, mate) {
   d.normalize().multiplyScalar(sp);
   d.y = Math.min(2.2, dist*0.05);
   doKick(p, d);
+  ball.receiver = mate;   // the target runs to meet the pass
 }
 function executeLob(p, tx, tz) {
   const d = V1.set(tx - ball.pos.x, 0, tz - ball.pos.z);
@@ -908,20 +911,26 @@ function executeLob(p, tx, tz) {
   d.y = vy;
   doKick(p, d);
 }
-function executeShot(p, power, errMult) {
+function executeShot(p, power) {
   stats.shots[p.team]++;
   const t = teams[p.team];
   const gx = t.dir * F.HL;
+  const distGoal = Math.hypot(gx - ball.pos.x, ball.pos.z);
+  // on-target chance by range: вблизи 98%, у штрафной 90%, издали 78%, с центра 60%
+  let acc = distGoal < 12 ? 0.98 : distGoal < 20 ? 0.90 : distGoal < 32 ? 0.78 : 0.60;
+  if (power > 0.9) acc -= 0.12;             // overcharged shots are wilder
+  const onTarget = Math.random() < acc;
   const side = ball.pos.z > 0 ? -1 : 1;
   let targetZ = side * (F.GW*0.7);
   if (t.human && input.active && Math.abs(input.y) > 0.25) targetZ = THREE.MathUtils.clamp(-input.y*F.GW*0.9, -F.GW*0.92, F.GW*0.92);
-  targetZ += (Math.random()-0.5) * 2.4 * (errMult ?? 0.35) * (0.4 + power);
+  if (onTarget) targetZ = THREE.MathUtils.clamp(targetZ + (Math.random()-0.5)*0.7, -F.GW+0.3, F.GW-0.3);
+  else targetZ = (Math.sign(targetZ) || 1) * (F.GW + 0.5 + Math.random()*1.7);
   const d = V1.set(gx - ball.pos.x, 0, targetZ - ball.pos.z);
   const dist = d.length();
   const sp = 19 + power*15;
   d.normalize().multiplyScalar(sp);
-  d.y = G*dist/(2*sp)*0.75 + 0.4 + power*1.8;
-  if (power > 0.9) d.y += (power-0.9)*7;
+  const tof = dist/sp;
+  d.y = (0.7 + Math.random() - ball.pos.y)/tof + G*tof/2;  // ballistic: crosses the line at 0.7–1.7m
   doKick(p, d);
 }
 
@@ -977,7 +986,7 @@ function actionLob() {
     const sc = prog*1.5 - Math.abs(dist-24)*0.3;
     if (sc>best){best=sc; mate=m;}
   }
-  if (mate) executeLob(p, mate.pos.x + mate.vel.x*0.5, mate.pos.z + mate.vel.z*0.5);
+  if (mate) { executeLob(p, mate.pos.x + mate.vel.x*0.5, mate.pos.z + mate.vel.z*0.5); ball.receiver = mate; }
   else executeLob(p, p.pos.x + teams[0].dir*26, p.pos.z*0.4);
 }
 function manualSwitch() {
@@ -992,8 +1001,11 @@ function manualSwitch() {
 }
 function bestPassTarget(p, isHuman) {
   const t = teams[p.team], opp = teams[1-p.team];
-  let aim = null;
-  if (isHuman && input.active) aim = V3.set(input.x,0,-input.y).normalize();
+  // human: the pass goes to whoever the stick points at (or who the player is facing)
+  const aim = isHuman
+    ? (input.active ? V3.set(input.x,0,-input.y).normalize()
+                    : V3.set(Math.sin(p.yaw),0,Math.cos(p.yaw)))
+    : null;
   let best=null, bestSc=-1e9;
   for (const m of t.players) {
     if (m===p || m.isGK) continue;
@@ -1002,18 +1014,23 @@ function bestPassTarget(p, isHuman) {
     if (dist<3 || dist>45) continue;
     d.normalize();
     let sc = 0;
-    if (aim) { const dot=d.dot(aim); if (dot<0.1) continue; sc += dot*24; }
-    sc += (m.pos.x - p.pos.x)*t.dir * 0.5;
-    sc -= Math.max(0, dist-26)*0.6;
-    let openness = 1e9;
-    for (const o of opp.players) openness = Math.min(openness, o.pos.distanceTo(m.pos));
-    sc += Math.min(openness, 10)*0.9;
-    for (const o of opp.players) {
-      const toO = V2.copy(o.pos).sub(p.pos); toO.y=0;
-      const along = toO.dot(d);
-      if (along>1 && along<dist) {
-        const perp = Math.sqrt(Math.max(0,toO.lengthSq()-along*along));
-        if (perp<2.2) sc -= (2.2-perp)*6;
+    if (isHuman) {
+      const dot = d.dot(aim);
+      if (dot < 0) continue;              // not behind the aim
+      sc = dot*36 - Math.abs(dist-16)*0.15;
+    } else {
+      sc += (m.pos.x - p.pos.x)*t.dir * 0.5;
+      sc -= Math.max(0, dist-26)*0.6;
+      let openness = 1e9;
+      for (const o of opp.players) openness = Math.min(openness, o.pos.distanceTo(m.pos));
+      sc += Math.min(openness, 10)*0.9;
+      for (const o of opp.players) {
+        const toO = V2.copy(o.pos).sub(p.pos); toO.y=0;
+        const along = toO.dot(d);
+        if (along>1 && along<dist) {
+          const perp = Math.sqrt(Math.max(0,toO.lengthSq()-along*along));
+          if (perp<2.2) sc -= (2.2-perp)*6;
+        }
       }
     }
     if (sc>bestSc){bestSc=sc; best=m;}
@@ -1067,6 +1084,8 @@ function updateTeamAI(team, dt) {
         p.stealCd = 0.85 * DIFF.aggro;
         if (Math.random() < 0.5) stealBall(p, ball.owner);
       }
+    } else if (!ball.owner && ball.receiver === p && state==='PLAY') {
+      p.target.copy(ballFuture);            // run to meet the incoming pass
     } else {
       let tx = homeX(p)*0.72 + ball.pos.x*0.42 + push*team.dir;
       let tz = homeZ(p)*0.82 + ball.pos.z*0.32;
@@ -1133,7 +1152,7 @@ function gkAI(p, team, dt) {
         const sc = (m.pos.x-p.pos.x)*team.dir + Math.random()*8;
         if (sc>best){best=sc;mate=m;}
       }
-      if (mate) executeLob(p, mate.pos.x+mate.vel.x*0.4, mate.pos.z);
+      if (mate) { executeLob(p, mate.pos.x+mate.vel.x*0.4, mate.pos.z); ball.receiver = mate; }
       else executeLob(p, team.dir*10, (Math.random()-0.5)*20);
       p.decideCd = 1;
     }
@@ -1418,6 +1437,7 @@ function updateBall(dt) {
       sKick(16); buzz(20);
     } else {
       ball.owner = taker;
+      ball.receiver = null;
       ball.lastTouchTeam = taker.team;
       taker.decideCd = Math.min(taker.decideCd, 0.5);
       if (taker.isGK) taker.decideCd = 0.9;
@@ -1481,6 +1501,10 @@ function updateControlled(dt) {
   switchCd -= dt;
   if (ball.owner && ball.owner.team===0) {
     if (!ball.owner.isGK) controlled = ball.owner;
+    return;
+  }
+  if (!ball.owner && ball.receiver && ball.receiver.team===0 && !ball.receiver.isGK) {
+    controlled = ball.receiver;             // you control the man the pass is going to
     return;
   }
   if (switchCd > 0) return;
