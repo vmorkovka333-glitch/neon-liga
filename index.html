@@ -549,7 +549,7 @@ for (const team of teams) {
       target: new THREE.Vector3(), yaw: 0, runPhase: Math.random()*6,
       chase: false, stunT: 0, stealCd: 0, decideCd: Math.random(),
       lungeT: 0, lungeDir: new THREE.Vector3(), kickAnim: 0, loseT: 0,
-      sliding: false, slideHit: false, diving: false,
+      sliding: false, slideHit: false, diving: false, reactT: 0,
       baseSpd: (isGK?6.8 : spec.role==='FW'?7.7 : spec.role==='DF'?7.2:7.5),
     };
     team.players.push(p); allPlayers.push(p);
@@ -587,6 +587,7 @@ function initAudio() {
 function crowdLevel(v, t) { if (crowdGain) crowdGain.gain.setTargetAtTime(v, AC.currentTime, t ?? 0.5); }
 function sKick(pow) {
   if (!AC) return;
+  if (!Number.isFinite(pow)) pow = 10;
   const t = AC.currentTime;
   const o = AC.createOscillator(), g = AC.createGain();
   o.type='sine'; o.frequency.setValueAtTime(120,t); o.frequency.exponentialRampToValueAtTime(50,t+0.09);
@@ -890,6 +891,7 @@ function passSpeed(dist) { return THREE.MathUtils.clamp(Math.sqrt(12*dist)*1.12,
 function executePass(p, mate) {
   const lead = V1.copy(mate.pos).addScaledVector(mate.vel, 0.35);
   const d = V2.copy(lead).sub(ball.pos); d.y = 0;
+  if (d.lengthSq() < 1e-4) d.set(teams[p.team].dir*0.1, 0, 0);
   const dist = d.length();
   const sp = passSpeed(dist);
   d.normalize().multiplyScalar(sp);
@@ -898,6 +900,7 @@ function executePass(p, mate) {
 }
 function executeLob(p, tx, tz) {
   const d = V1.set(tx - ball.pos.x, 0, tz - ball.pos.z);
+  if (d.lengthSq() < 1e-4) d.set(teams[p.team].dir*0.1, 0, 0);
   const dist = Math.max(6, d.length());
   const vy = THREE.MathUtils.clamp(5.5 + dist*0.16, 7, 13);
   const tof = 2*vy/G;
@@ -910,15 +913,15 @@ function executeShot(p, power, errMult) {
   const t = teams[p.team];
   const gx = t.dir * F.HL;
   const side = ball.pos.z > 0 ? -1 : 1;
-  let targetZ = side * (F.GW*0.55);
+  let targetZ = side * (F.GW*0.7);
   if (t.human && input.active && Math.abs(input.y) > 0.25) targetZ = THREE.MathUtils.clamp(-input.y*F.GW*0.9, -F.GW*0.92, F.GW*0.92);
   targetZ += (Math.random()-0.5) * 2.4 * (errMult ?? 0.35) * (0.4 + power);
   const d = V1.set(gx - ball.pos.x, 0, targetZ - ball.pos.z);
   const dist = d.length();
   const sp = 19 + power*15;
   d.normalize().multiplyScalar(sp);
-  d.y = G*dist/(2*sp) + 0.6 + power*2.6;
-  if (power > 0.85) d.y += (power-0.85)*8;
+  d.y = G*dist/(2*sp)*0.75 + 0.4 + power*1.8;
+  if (power > 0.9) d.y += (power-0.9)*7;
   doKick(p, d);
 }
 
@@ -928,13 +931,14 @@ function startCharge() {
   if (IS_TOUCH) shootRing.style.display='block'; else powerMeter.style.display='block';
 }
 function releaseShot() {
-  const power = Math.min(1, chargeT/0.9);
+  // tap = driven shot like the CPU's minimum, full hold = rocket
+  const power = 0.45 + Math.min(1, chargeT/0.9)*0.55;
   hideCharge();
   if (state!=='PLAY') return;
   const p = controlled;
   if (ball.owner === p) executeShot(p, power, 0.3);
   else if (!ball.owner && p.pos.distanceTo(ball.pos) < 2.2 && ball.pos.y < 1.6) {
-    executeShot(p, Math.max(0.45,power), 0.55);
+    executeShot(p, power, 0.55);
   }
 }
 function actionPass() {
@@ -1104,9 +1108,10 @@ function carrierAI(p, team, dt) {
   }
   const d = V1.set(gx - p.pos.x, 0, -p.pos.z*0.35);
   d.normalize();
-  if (near.d < 3.5) {
+  if (near.d < 3.5 && near.d > 0.01) {
     const away = V2.copy(p.pos).sub(near.o.pos).setY(0).normalize();
-    d.addScaledVector(away, 0.85).normalize();
+    d.addScaledVector(away, 0.85);
+    if (d.lengthSq() > 1e-4) d.normalize(); else d.set(team.dir, 0, 0);
   }
   p.target.copy(p.pos).addScaledVector(d, 6);
   p.target.x = THREE.MathUtils.clamp(p.target.x, -F.HL+1.5, F.HL-1.5);
@@ -1118,6 +1123,7 @@ function gkAI(p, team, dt) {
   const gc = V1.set(gx, 0, 0);
   p.diving = false;
   if (ball.owner === p) {
+    p.reactT = 0;
     p.decideCd -= dt;
     p.target.copy(p.pos);
     if (p.decideCd <= 0) {
@@ -1139,16 +1145,20 @@ function gkAI(p, team, dt) {
   const approaching = ball.vel.x * (gx - ball.pos.x) > 0 && Math.abs(ball.vel.x) > 8 && !ball.owner;
   if (approaching && Math.abs(ball.pos.x-gx) < 32) {
     const tcross = Math.abs((gx + team.dir*1.2) - ball.pos.x) / Math.max(1,Math.abs(ball.vel.x));
-    if (tcross < 1.5) {
-      const zc = THREE.MathUtils.clamp(ball.pos.z + ball.vel.z*tcross, -F.GW-0.8, F.GW+0.8);
-      p.target.set(gx + team.dir*0.8, 0, zc);
-      p.diving = true;
+    const zc = ball.pos.z + ball.vel.z*tcross;
+    if (tcross < 1.5 && Math.abs(zc) < F.GW + 0.6) {
+      p.reactT += dt;                       // reflex delay before committing to the dive
+      if (p.reactT > 0.1) {
+        p.target.set(gx + team.dir*0.8, 0, THREE.MathUtils.clamp(zc, -F.GW+0.15, F.GW-0.15));
+        p.diving = true;
+      }
       return;
     }
   }
+  p.reactT = 0;
   if (!ball.owner && dist < 13 && Math.hypot(ball.vel.x,ball.vel.z) < 8) { p.target.copy(ball.pos); return; }
   const standDist = THREE.MathUtils.clamp(1.5 + (46-dist)*0.06, 0.8, 4.5);
-  toBall.normalize();
+  if (dist > 0.05) toBall.normalize(); else toBall.set(team.dir, 0, 0);
   p.target.copy(gc).addScaledVector(toBall, standDist);
   p.target.z = THREE.MathUtils.clamp(p.target.z, -F.GW-1.2, F.GW+1.2);
 }
@@ -1166,6 +1176,11 @@ function stealBall(thief, victim) {
 function movePlayers(dt) {
   const inPlay = state==='PLAY';
   for (const p of allPlayers) {
+    if (!Number.isFinite(p.pos.x + p.pos.z + p.vel.x + p.vel.z + p.yaw + p.target.x + p.target.z)) {
+      p.pos.set(homeX(p), 0, homeZ(p)); p.vel.set(0,0,0); p.yaw = 0;
+      p.target.set(p.pos.x, 0, p.pos.z);
+      if (ball.owner === p) { ball.owner = null; ball.pos.set(p.pos.x, BALL_R, p.pos.z); ball.vel.set(0,0,0); }
+    }
     p.stunT = Math.max(0, p.stunT-dt);
     p.stealCd = Math.max(0, p.stealCd-dt);
     p.loseT = Math.max(0, p.loseT-dt);
@@ -1195,10 +1210,10 @@ function movePlayers(dt) {
       if (d < 0.25) { dx=0; dz=0; }
       else { dx/=d; dz/=d; if (d<2) maxSpd *= Math.max(0.3, d/2); }
     }
-    if (p.isGK) maxSpd *= p.diving ? 1.45 : 1.12;
+    if (p.isGK) maxSpd *= p.diving ? 1.65 : 1.12;
 
     const ax = dx*maxSpd - p.vel.x, az = dz*maxSpd - p.vel.z;
-    const am = Math.hypot(ax,az), acc = 26*dt;
+    const am = Math.hypot(ax,az), acc = (p.isGK && p.diving ? 48 : 26)*dt;
     if (am > acc) { p.vel.x += ax/am*acc; p.vel.z += az/am*acc; }
     else { p.vel.x = dx*maxSpd; p.vel.z = dz*maxSpd; }
 
@@ -1245,9 +1260,11 @@ function movePlayers(dt) {
     const a=allPlayers[i], b=allPlayers[j];
     const dx=b.pos.x-a.pos.x, dz=b.pos.z-a.pos.z;
     const d2=dx*dx+dz*dz;
-    if (d2<0.64 && d2>0.0001) {
-      const d=Math.sqrt(d2), pushA=(0.8-d)*0.5;
-      const nx=dx/d, nz=dz/d;
+    if (d2<0.64) {
+      let d=Math.sqrt(d2), nx, nz;
+      if (d<0.01) { const a2=Math.random()*6.283; nx=Math.cos(a2); nz=Math.sin(a2); d=0.01; }
+      else { nx=dx/d; nz=dz/d; }
+      const pushA=(0.8-d)*0.5;
       a.pos.x-=nx*pushA; a.pos.z-=nz*pushA;
       b.pos.x+=nx*pushA; b.pos.z+=nz*pushA;
     }
@@ -1256,6 +1273,9 @@ function movePlayers(dt) {
 
 let perfNow = 0;
 function updateBall(dt) {
+  if (!Number.isFinite(ball.pos.x + ball.pos.y + ball.pos.z + ball.vel.x + ball.vel.y + ball.vel.z)) {
+    ball.pos.set(0, BALL_R, 0); ball.vel.set(0,0,0); ball.owner = null; ball.lastKicker = null;
+  }
   if (ball.owner) {
     const p = ball.owner;
     const fx = Math.sin(p.yaw), fz = Math.cos(p.yaw);
@@ -1367,20 +1387,42 @@ function updateBall(dt) {
   for (const p of allPlayers) {
     if (p.stunT>0 || p.loseT>0) continue;
     if (ball.lastKicker===p && perfNow-ball.kickT < 0.5) continue;
-    const d = p.pos.distanceTo(ball.pos);
-    const reach = p.isGK ? (p.diving ? 2.2 : 1.9) : 1.05;
-    const maxH = p.isGK ? 2.3 : 1.3;
+    // keepers claim by horizontal distance (arms reach up), outfielders by true 3D distance
+    const d = p.isGK ? Math.hypot(p.pos.x-ball.pos.x, p.pos.z-ball.pos.z) : p.pos.distanceTo(ball.pos);
+    const reach = p.isGK ? (p.diving ? 2.15 : 1.55) : 1.05;
+    const maxH = p.isGK ? 2.35 : 1.3;
     const maxSp = p.isGK ? 50 : 14;
     if (d < reach && ball.pos.y < maxH && hSpeed < maxSp) {
       if (d < bd) { bd=d; taker=p; }
     }
   }
+  if (taker && taker.isGK && hSpeed > 20) {
+    // hard shot: save chance drops with shot speed — identical odds for both keepers
+    const pSave = THREE.MathUtils.clamp(1.7 - hSpeed/30, 0.45, 0.93);
+    if (Math.random() > pSave) {
+      taker.loseT = 0.35;  // beaten — ball flies past
+      taker = null;
+    }
+  }
   if (taker) {
-    ball.owner = taker;
-    ball.lastTouchTeam = taker.team;
-    taker.decideCd = Math.min(taker.decideCd, 0.5);
-    if (taker.isGK) taker.decideCd = 0.9;
-    ball.vel.set(0,0,0);
+    if (taker.isGK && hSpeed > 20) {
+      // rocket shot: punch it clear instead of catching
+      ball.lastTouchTeam = taker.team;
+      ball.lastKicker = taker; ball.kickT = perfNow;
+      const sideSign = Math.sign(ball.vel.z || (Math.random()-0.5)) || 1;
+      const infield = -Math.sign(taker.pos.x) || 1;
+      ball.vel.set(infield*(7+Math.random()*4), 4.5, sideSign*(8+Math.random()*5));
+      ball.pos.y = Math.max(ball.pos.y, BALL_R+0.1);
+      taker.kickAnim = 0.28;
+      showMsg('СЭЙВ!');
+      sKick(16); buzz(20);
+    } else {
+      ball.owner = taker;
+      ball.lastTouchTeam = taker.team;
+      taker.decideCd = Math.min(taker.decideCd, 0.5);
+      if (taker.isGK) taker.decideCd = 0.9;
+      ball.vel.set(0,0,0);
+    }
   }
 }
 
