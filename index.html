@@ -256,7 +256,7 @@
 <div class="screen" id="startscreen" data-screen-label="Главное меню">
   <div class="menucard">
     <h1><span>НЕОН</span>-ЛИГА</h1>
-    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V2.0</div>
+    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V2.1</div>
     <div id="playerbar">
       <span id="pb-level">УРОВЕНЬ <b>1</b></span>
       <span id="pb-coins">🪙 <b>0</b></span>
@@ -281,6 +281,7 @@
     </div>
     <button id="playbtn">ИГРАТЬ</button>
     <div class="btnrow" style="margin-top:14px">
+      <button class="mbtn small" id="onlinebtn" style="border-color:rgba(34,211,238,.6)">🌐 ОНЛАЙН 1×1</button>
       <button class="mbtn small" id="cupbtn">🏆 КУБОК</button>
       <button class="mbtn small" id="profilebtn">ПРОФИЛЬ</button>
       <button class="mbtn small" id="shopbtn">МАГАЗИН</button>
@@ -367,8 +368,33 @@
   </div>
 </div>
 
+<div class="screen" id="onlinescreen" style="display:none" data-screen-label="Онлайн">
+  <div class="menucard">
+    <div class="endtitle">🌐 ОНЛАЙН 1×1</div>
+    <div style="margin:12px 0;color:#93a5c2;font-size:14px;line-height:1.7">
+      Играйте с другом напрямую между браузерами.<br>
+      Хост — за <b style="color:var(--cyan)">НЕОН</b>, гость — за <b style="color:var(--mag)">МАГМУ</b>.
+    </div>
+    <button class="mbtn primary" id="hostbtn">СОЗДАТЬ МАТЧ</button>
+    <div id="hostinfo" style="display:none;margin:14px 0 4px">
+      <div style="font-size:13px;letter-spacing:.2em;color:#8fa0bc">КОД КОМНАТЫ</div>
+      <div id="roomcode" style="font-size:46px;font-weight:800;letter-spacing:.3em;color:var(--lime)"></div>
+      <div style="font-size:13px;color:#93a5c2">Скажите код другу — матч начнётся сам</div>
+    </div>
+    <div class="optlabel">ИЛИ ВОЙТИ ПО КОДУ ДРУГА</div>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <input id="codeinput" maxlength="4" placeholder="КОД" autocomplete="off"
+        style="width:130px;text-align:center;font-size:22px;letter-spacing:.2em;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);color:#fff;font-family:inherit;font-weight:700;text-transform:uppercase;-webkit-user-select:text;user-select:text">
+      <button class="mbtn" id="joinbtn" style="min-width:0">ВОЙТИ</button>
+    </div>
+    <div id="onlinestatus" style="margin-top:14px;min-height:22px;color:var(--lime);letter-spacing:.06em"></div>
+    <div class="btnrow backrow"><button class="mbtn" data-back id="onlineback">НАЗАД</button></div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script type="importmap">
 { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
 </script>
@@ -675,6 +701,7 @@ const arrowMark = new THREE.Mesh(new THREE.ConeGeometry(0.22,0.5,4),
   new THREE.MeshBasicMaterial({ color:0xb8f335 }));
 arrowMark.rotation.x = Math.PI; scene.add(arrowMark);
 let controlled = teams[0].players[9];
+let controlled2 = teams[1].players[9];   // guest-driven player in online mode (host simulates)
 
 /* ================= AUDIO ================= */
 let AC = null, crowdGain = null, masterGain = null;
@@ -705,6 +732,7 @@ function sKick(pow) {
   o.connect(g); g.connect(masterGain); o.start(t); o.stop(t+0.13);
 }
 function sWhistle(n) {
+  if (NET.mode === 'host') netSend({ t:'ev', k:'wh', n });
   if (!AC) return;
   for (let i=0;i<n;i++) {
     const t = AC.currentTime + i*0.45;
@@ -720,6 +748,7 @@ function sWhistle(n) {
 }
 function sCheer() { crowdLevel(0.5, 0.08); setTimeout(()=>crowdLevel(0.10, 1.2), 1800); }
 function sPost() {
+  if (NET.mode === 'host') netSend({ t:'ev', k:'post' });
   if (!AC) return;
   const t=AC.currentTime, o=AC.createOscillator(), g=AC.createGain();
   o.type='triangle'; o.frequency.setValueAtTime(620,t); o.frequency.exponentialRampToValueAtTime(400,t+0.2);
@@ -734,7 +763,8 @@ const input = { x:0, y:0, active:false, sprint:false };
 let chargeT = -1;
 let containHeld = false;
 
-const oppHasBall = () => !!ball.owner && ball.owner.team === 1;
+const myTeamId = () => NET.mode === 'guest' ? 1 : 0;
+const oppHasBall = () => !!ball.owner && ball.owner.team !== myTeamId();
 
 addEventListener('keydown', e => {
   initAudio();
@@ -962,7 +992,7 @@ function setOpponent(cfg) {
 }
 
 /* --- menu screens --- */
-const SCREEN_IDS = ['profilescreen','shopscreen','cupscreen','settingsscreen'];
+const SCREEN_IDS = ['profilescreen','shopscreen','cupscreen','settingsscreen','onlinescreen'];
 function refreshPlayerbar() {
   document.getElementById('pb-level').innerHTML = `УРОВЕНЬ <b>${levelOf(SAVE.xp)}</b>`;
   document.getElementById('pb-coins').innerHTML = `🪙 <b>${SAVE.coins}</b>`;
@@ -1064,6 +1094,243 @@ document.getElementById('cupplay').addEventListener('click', () => {
   startMatch();
 });
 
+/* ================= ONLINE (WebRTC / PeerJS) ================= */
+const NET = {
+  mode: 'off',            // off | host | guest
+  peer: null, conn: null,
+  remoteInput: { x:0, y:0, active:false, sprint:false, contain:false },
+  sendAcc: 0, tgtP: null, tgtB: [0, 0.32, 0], c1: -1,
+  halfLen: 180,
+};
+function netSend(o) { if (NET.conn && NET.conn.open) { try { NET.conn.send(o); } catch(e) {} } }
+function setOnlineStatus(t) { document.getElementById('onlinestatus').textContent = t; }
+function makeCode() {
+  const A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let s = ''; for (let i=0;i<4;i++) s += A[(Math.random()*A.length)|0];
+  return s;
+}
+function netCleanup() {
+  NET.mode = 'off'; NET.tgtP = null; NET.c1 = -1;
+  teams[1].human = false;
+  try { NET.conn && NET.conn.close(); } catch(e) {}
+  try { NET.peer && NET.peer.destroy(); } catch(e) {}
+  NET.conn = null; NET.peer = null;
+  document.getElementById('hostinfo').style.display = 'none';
+}
+function netExitToMenu() {
+  document.body.classList.remove('playing');
+  state = 'MENU';
+  hud.style.display='none'; radarEl.style.display='none';
+  document.getElementById('endscreen').style.display='none';
+  document.getElementById('pausescreen').style.display='none';
+  document.getElementById('startscreen').style.display='flex';
+  refreshPlayerbar();
+}
+function netAbort(msg) {
+  const wasOn = NET.mode !== 'off';
+  const inMatch = document.body.classList.contains('playing') || state === 'FULLTIME';
+  netCleanup();
+  if (!wasOn) return;
+  if (inMatch) {
+    showMsg('СВЯЗЬ ПРЕРВАНА', msg || '');
+    setTimeout(netExitToMenu, 1800);
+  } else setOnlineStatus(msg || 'Соединение закрыто');
+}
+function createRoom() {
+  if (typeof Peer === 'undefined') { setOnlineStatus('Библиотека сети не загрузилась'); return; }
+  netCleanup();
+  setOnlineStatus('Создаём комнату…');
+  const code = makeCode();
+  const peer = new Peer('nlg25-' + code);
+  NET.peer = peer;
+  peer.on('open', () => {
+    document.getElementById('roomcode').textContent = code;
+    document.getElementById('hostinfo').style.display = 'block';
+    setOnlineStatus('Ждём соперника…');
+  });
+  peer.on('error', e => {
+    if (e.type === 'unavailable-id') createRoom();
+    else setOnlineStatus('Ошибка сети: ' + e.type);
+  });
+  peer.on('connection', c => {
+    if (NET.conn) { try { c.close(); } catch(e) {} return; }
+    NET.conn = c;
+    c.on('open', () => { NET.mode = 'host'; hostStartOnline(); });
+    c.on('data', hostOnData);
+    c.on('close', () => netAbort('Соперник отключился'));
+  });
+}
+function joinRoom(code) {
+  if (typeof Peer === 'undefined') { setOnlineStatus('Библиотека сети не загрузилась'); return; }
+  if (!code || code.length < 4) { setOnlineStatus('Введите код из 4 символов'); return; }
+  netCleanup();
+  setOnlineStatus('Подключаемся…');
+  const peer = new Peer();
+  NET.peer = peer;
+  peer.on('open', () => {
+    const c = peer.connect('nlg25-' + code.toUpperCase());
+    NET.conn = c;
+    c.on('open', () => { NET.mode = 'guest'; setOnlineStatus('Соединено! Ждём старт…'); });
+    c.on('data', guestOnData);
+    c.on('close', () => netAbort('Соединение прервано'));
+  });
+  peer.on('error', e => {
+    setOnlineStatus(e.type === 'peer-unavailable' ? 'Комната не найдена' : 'Ошибка сети: ' + e.type);
+  });
+}
+function hostStartOnline() {
+  matchMode = 'online';
+  NET.sendAcc = 0;
+  setOpponent(MAGMA_CFG);
+  DIFF = DIFFS[menuDiffIdx];
+  netSend({ t:'start', hl: HALF_LEN });
+  startMatch();
+  showMsg('ОНЛАЙН-МАТЧ', 'соперник подключён');
+}
+function hostOnData(d) {
+  if (!d || !d.t) return;
+  if (d.t === 'i') {
+    NET.remoteInput.x = d.x || 0; NET.remoteInput.y = d.y || 0;
+    NET.remoteInput.active = !!d.a; NET.remoteInput.sprint = !!d.sp; NET.remoteInput.contain = !!d.c;
+  }
+  else if (d.t === 'act') guestAction(d);
+  else if (d.t === 'bye') netAbort('Соперник вышел');
+}
+function guestAction(d) {
+  const p = controlled2;
+  if (!p || state !== 'PLAY') return;
+  const inp = NET.remoteInput;
+  if (d.k === 'pass') actionPassFor(p, inp);
+  else if (d.k === 'lob') actionLobFor(p);
+  else if (d.k === 'slide') actionSlideFor(p, inp);
+  else if (d.k === 'switch') manualSwitch2();
+  else if (d.k === 'shoot') {
+    const pw = Math.min(1, d.pw || 0.6);
+    if (ball.owner === p) executeShot(p, pw, inp);
+    else if (ball.owner && ball.owner.team === 0) actionSlideFor(p, inp);
+    else if (!ball.owner && p.pos.distanceTo(ball.pos) < 2.2 && ball.pos.y < 1.6) executeShot(p, pw, inp);
+  }
+}
+function guestOnData(d) {
+  if (!d || !d.t) return;
+  if (d.t === 's') {
+    NET.tgtP = d.p; NET.tgtB = d.b; NET.c1 = d.c1;
+    teams[0].score = d.s0; teams[1].score = d.s1;
+    state = d.st;
+    scoreEl.textContent = `${d.s0} : ${d.s1}`;
+    const frac = Math.min(1, d.mt / NET.halfLen);
+    clockEl.textContent = Math.min(90, Math.floor(45*frac) + (d.h===2?45:0)) + "'";
+    halfEl.textContent = d.h === 1 ? '1Т' : '2Т';
+  }
+  else if (d.t === 'msg') showMsg(d.m, d.sub);
+  else if (d.t === 'ev') {
+    if (d.k === 'kick') sKick(d.pw || 10);
+    else if (d.k === 'wh') sWhistle(d.n || 1);
+    else if (d.k === 'post') sPost();
+    else if (d.k === 'goal') {
+      sCheer(); crowdPulse = 1; goalFlash = 1; buzz(80);
+      spawnFireworks(Math.sign(ball.pos.x || 1) * F.HL, 0);
+    }
+  }
+  else if (d.t === 'start') guestStart(d);
+  else if (d.t === 'end') guestEnd(d);
+  else if (d.t === 'bye') netAbort('Хост завершил матч');
+}
+function guestStart(d) {
+  NET.halfLen = d.hl || 180;
+  matchMode = 'online';
+  hideCharge();
+  for (const s of SCREEN_IDS) document.getElementById(s).style.display = 'none';
+  document.getElementById('startscreen').style.display = 'none';
+  document.getElementById('endscreen').style.display = 'none';
+  hud.style.display = 'flex'; radarEl.style.display = 'block';
+  document.body.classList.add('playing');
+  initAudio(); if (AC && AC.state === 'suspended') AC.resume();
+  crowdLevel(0.10, 1.5);
+  applyCosmetics();
+  setOpponent(MAGMA_CFG);
+  state = 'PLAY';
+  showMsg('ОНЛАЙН-МАТЧ', 'вы играете за МАГМУ (красные)');
+}
+function guestEnd(d) {
+  state = 'FULLTIME';
+  document.body.classList.remove('playing');
+  const my = d.s1, op = d.s0, win = my > op, draw = my === op, margin = Math.abs(my - op);
+  document.getElementById('endscore').textContent = `${d.s0} : ${d.s1}`;
+  document.getElementById('endscore').style.color = win ? '#ff5a2e' : (draw ? '#b8f335' : '#22d3ee');
+  document.getElementById('endverdict').textContent = win ? 'ВЫ ПОБЕДИЛИ!' : (draw ? 'НИЧЬЯ' : 'ПОБЕДА НЕОНА');
+  const coins = (win?50:(draw?20:10)) + my*5;
+  const xp = (win?100:(draw?40:15)) + my*20;
+  const oldLevel = levelOf(SAVE.xp);
+  const rChg = win ? 20+margin*4 : draw ? 3 : -(16+margin*3);
+  SAVE.coins += coins; SAVE.xp += xp; SAVE.rating = Math.max(100, SAVE.rating + rChg);
+  SAVE.matches++; SAVE.gf += my; SAVE.ga += op; SAVE.totalGoals += my;
+  if (win) { SAVE.wins++; SAVE.streak++; SAVE.bestStreak = Math.max(SAVE.bestStreak, SAVE.streak); }
+  else if (draw) SAVE.draws++;
+  else { SAVE.losses++; SAVE.streak = 0; }
+  SAVE.best.push({ r:`${my}:${op}`, o:'НЕОН (онлайн)', m:win?margin:-margin, cup:false });
+  SAVE.best.sort((a,b)=>b.m-a.m); SAVE.best = SAVE.best.slice(0,8);
+  matchCtx = { maxDeficit: 0 };
+  checkAchievements(my, op, win, draw);
+  const newLevel = levelOf(SAVE.xp);
+  if (newLevel > oldLevel) toast(`🌟 Новый уровень: ${newLevel}!`);
+  persist();
+  document.getElementById('rewards').innerHTML =
+    `+<b>${xp}</b> XP · +<b>${coins}</b> 🪙 · РЕЙТИНГ <b>${rChg>=0?'+':''}${rChg}</b>`
+    + (newLevel>oldLevel ? `<br>🌟 НОВЫЙ УРОВЕНЬ ${newLevel}!` : '');
+  document.getElementById('endxp').style.width = (levelProgress(SAVE.xp)*100).toFixed(0)+'%';
+  document.getElementById('st-poss0').textContent = (d.p0 ?? 50)+'%';
+  document.getElementById('st-poss1').textContent = (100-(d.p0 ?? 50))+'%';
+  document.getElementById('st-shots0').textContent = d.sh0 ?? 0;
+  document.getElementById('st-shots1').textContent = d.sh1 ?? 0;
+  sWhistle(3);
+  setTimeout(() => { document.getElementById('endscreen').style.display='flex'; }, 900);
+}
+function netSnapshot() {
+  const P = [];
+  for (const p of allPlayers) P.push([+p.pos.x.toFixed(2), +p.pos.z.toFixed(2), +p.yaw.toFixed(2)]);
+  return { t:'s', st: state, h: half, mt: +matchT.toFixed(2),
+    s0: teams[0].score, s1: teams[1].score,
+    b: [+ball.pos.x.toFixed(2), +ball.pos.y.toFixed(2), +ball.pos.z.toFixed(2)],
+    p: P, c1: allPlayers.indexOf(controlled2) };
+}
+function guestFrame(dt, now) {
+  NET.sendAcc = Math.max(0, NET.sendAcc) + dt;
+  if (NET.sendAcc >= 0.05) {
+    NET.sendAcc = 0;
+    netSend({ t:'i', x:+input.x.toFixed(2), y:+input.y.toFixed(2), a:input.active, sp:input.sprint, c:containHeld });
+  }
+  if (NET.tgtP) {
+    const k = Math.min(1, 12*dt);
+    for (let i=0;i<allPlayers.length;i++) {
+      const p = allPlayers[i], t = NET.tgtP[i];
+      if (!t) continue;
+      const ox = p.pos.x, oz = p.pos.z;
+      p.pos.x += (t[0]-p.pos.x)*k;
+      p.pos.z += (t[1]-p.pos.z)*k;
+      const spd = Math.hypot(p.pos.x-ox, p.pos.z-oz)/Math.max(dt, 1e-3);
+      let dy = t[2] - p.yaw;
+      while (dy>Math.PI) dy-=Math.PI*2; while (dy<-Math.PI) dy+=Math.PI*2;
+      p.yaw += dy*Math.min(1, 10*dt);
+      p.grp.rotation.y = p.yaw; p.grp.rotation.x = 0; p.grp.rotation.z = 0;
+      p.runPhase += spd*dt*2.1;
+      const swing = Math.min(1, spd/6)*0.85, sw = Math.sin(p.runPhase);
+      p.limbs.lLeg.rotation.x = sw*swing;  p.limbs.rLeg.rotation.x = -sw*swing;
+      p.limbs.lArm.rotation.x = -sw*swing*0.8; p.limbs.rArm.rotation.x = sw*swing*0.8;
+    }
+    const kb = Math.min(1, 16*dt);
+    ball.pos.x += (NET.tgtB[0]-ball.pos.x)*kb;
+    ball.pos.y += (NET.tgtB[1]-ball.pos.y)*kb;
+    ball.pos.z += (NET.tgtB[2]-ball.pos.z)*kb;
+    ballMesh.rotation.x += Math.hypot(NET.tgtB[0]-ball.pos.x, NET.tgtB[2]-ball.pos.z)*dt*8;
+  }
+  commonVisuals(dt, now);
+}
+document.getElementById('onlinebtn').addEventListener('click', () => { showScreen('onlinescreen'); setOnlineStatus(''); });
+document.getElementById('hostbtn').addEventListener('click', createRoom);
+document.getElementById('joinbtn').addEventListener('click', () => joinRoom(document.getElementById('codeinput').value.trim()));
+document.getElementById('onlineback').addEventListener('click', () => netCleanup());
+
 /* ================= GAME STATE ================= */
 let state = 'MENU';
 let stateT = 0, half = 1, matchT = 0, prevState = 'PLAY';
@@ -1074,6 +1341,7 @@ const msgEl = document.getElementById('msg');
 function showMsg(t, sub) {
   msgEl.innerHTML = t + (sub ? `<small>${sub}</small>` : '');
   msgEl.classList.remove('show'); void msgEl.offsetWidth; msgEl.classList.add('show');
+  if (NET.mode === 'host') netSend({ t:'msg', m: t, sub });
 }
 const hud = document.getElementById('hud'), radarEl = document.getElementById('radar');
 const scoreEl = document.getElementById('score'), clockEl = document.getElementById('clock'), halfEl = document.getElementById('half');
@@ -1103,6 +1371,7 @@ function kickoff(teamId) {
   restartData = { taker, teamId, type:'kickoff' };
   state = 'KICKOFF'; stateT = 1.4;
   if (teams[0].human && teamId===0) controlled = taker;
+  if (teams[1].human && teamId===1) controlled2 = taker;
   hideCharge();
 }
 function setRestart(type, x, z, teamId, msg) {
@@ -1121,12 +1390,14 @@ function setRestart(type, x, z, teamId, msg) {
   restartData = { taker, teamId, type };
   state = 'RESTART'; stateT = 1.2;
   if (msg) showMsg(msg);
-  if (t.human) controlled = taker.isGK ? controlled : taker;
+  if (teamId===0 && t.human && !taker.isGK) controlled = taker;
+  if (teamId===1 && t.human && !taker.isGK) controlled2 = taker;
   hideCharge();
 }
 
 function startMatch() {
   matchCtx = { maxDeficit: 0 };
+  teams[1].human = matchMode === 'online';
   applyCosmetics();
   for (const s of SCREEN_IDS) document.getElementById(s).style.display = 'none';
   teams[0].score = 0; teams[1].score = 0;
@@ -1195,9 +1466,11 @@ function endMatch() {
   document.getElementById('st-poss1').textContent = (100-p0)+'%';
   document.getElementById('st-shots0').textContent = stats.shots[0];
   document.getElementById('st-shots1').textContent = stats.shots[1];
+  if (NET.mode === 'host') netSend({ t:'end', s0, s1, p0, sh0: stats.shots[0], sh1: stats.shots[1] });
   setTimeout(()=>{ document.getElementById('endscreen').style.display='flex'; crowdLevel(0.06,2); }, 900);
 }
 function togglePause() {
+  if (NET.mode !== 'off') return;   // no pausing online — the sim must keep flowing
   if (state==='MENU'||state==='FULLTIME') return;
   if (state==='PAUSED') {
     state = prevState;
@@ -1234,12 +1507,17 @@ for (const row of ['diffrow','lenrow']) {
 document.getElementById('playbtn').addEventListener('click', () => {
   matchMode = 'friendly'; DIFF = DIFFS[menuDiffIdx]; setOpponent(MAGMA_CFG); startMatch();
 });
-document.getElementById('rematchbtn').addEventListener('click', startMatch);
+document.getElementById('rematchbtn').addEventListener('click', () => {
+  if (NET.mode === 'guest') { showMsg('РЕВАНШ', 'ждём, пока хост начнёт'); return; }
+  if (NET.mode === 'host') { hostStartOnline(); return; }
+  startMatch();
+});
 document.getElementById('restartbtn').addEventListener('click', () => {
   document.getElementById('pausescreen').style.display='none';
   startMatch();
 });
 document.getElementById('menubtn').addEventListener('click', () => {
+  if (NET.mode !== 'off') { netSend({t:'bye'}); netCleanup(); }
   state='MENU'; document.getElementById('endscreen').style.display='none';
   document.getElementById('startscreen').style.display='flex';
   hud.style.display='none'; radarEl.style.display='none';
@@ -1247,6 +1525,7 @@ document.getElementById('menubtn').addEventListener('click', () => {
 });
 document.getElementById('resumebtn').addEventListener('click', togglePause);
 document.getElementById('quitbtn').addEventListener('click', () => {
+  if (NET.mode !== 'off') { netSend({t:'bye'}); netCleanup(); }
   document.getElementById('pausescreen').style.display='none';
   document.body.classList.remove('playing');
   state='MENU';
@@ -1266,6 +1545,7 @@ function doKick(p, vel) {
   ball.lastTouchTeam = p.team;
   p.kickAnim = 0.28;
   sKick(vel.length());
+  if (NET.mode === 'host') netSend({ t:'ev', k:'kick', pw: Number.isFinite(vel.length()) ? +vel.length().toFixed(1) : 10 });
   if (p.team===0) buzz(10);
 }
 function passSpeed(dist) { return THREE.MathUtils.clamp(Math.sqrt(12*dist)*1.12, 10, 26); }
@@ -1290,7 +1570,7 @@ function executeLob(p, tx, tz) {
   d.y = vy;
   doKick(p, d);
 }
-function executeShot(p, power) {
+function executeShot(p, power, aimInp) {
   stats.shots[p.team]++;
   const t = teams[p.team];
   const gx = t.dir * F.HL;
@@ -1301,7 +1581,7 @@ function executeShot(p, power) {
   const onTarget = Math.random() < acc;
   const side = ball.pos.z > 0 ? -1 : 1;
   let targetZ = side * (F.GW*0.7);
-  if (t.human && input.active && Math.abs(input.y) > 0.25) targetZ = THREE.MathUtils.clamp(-input.y*F.GW*0.9, -F.GW*0.92, F.GW*0.92);
+  if (aimInp && aimInp.active && Math.abs(aimInp.y) > 0.25) targetZ = THREE.MathUtils.clamp(-aimInp.y*F.GW*0.9, -F.GW*0.92, F.GW*0.92);
   if (onTarget) targetZ = THREE.MathUtils.clamp(targetZ + (Math.random()-0.5)*0.7, -F.GW+0.3, F.GW-0.3);
   else targetZ = (Math.sign(targetZ) || 1) * (F.GW + 0.5 + Math.random()*1.7);
   const d = V1.set(gx - ball.pos.x, 0, targetZ - ball.pos.z);
@@ -1323,52 +1603,64 @@ function releaseShot() {
   const power = 0.45 + Math.min(1, chargeT/0.9)*0.55;
   hideCharge();
   if (state!=='PLAY') return;
+  if (NET.mode === 'guest') { netSend({t:'act', k:'shoot', pw:+power.toFixed(2)}); return; }
   const p = controlled;
-  if (ball.owner === p) executeShot(p, power, 0.3);
+  if (ball.owner === p) executeShot(p, power, input);
   else if (!ball.owner && p.pos.distanceTo(ball.pos) < 2.2 && ball.pos.y < 1.6) {
-    executeShot(p, power, 0.55);
+    executeShot(p, power, input);
   }
 }
-function actionPass() {
-  const p = controlled;
+function actionPassFor(p, inp) {
   if (ball.owner === p) {
-    const mate = bestPassTarget(p, true);
+    const mate = bestPassTarget(p, inp);
     if (mate) executePass(p, mate);
-    else executeLob(p, p.pos.x + teams[0].dir*20, p.pos.z*0.5);
+    else executeLob(p, p.pos.x + teams[p.team].dir*20, p.pos.z*0.5);
   } else {
     if (p.lungeT<=0 && p.stunT<=0) {
       p.lungeT = 0.35; p.sliding = false;
-      if (input.active) p.lungeDir.set(input.x,0,-input.y).normalize();
+      if (inp.active) p.lungeDir.set(inp.x,0,-inp.y).normalize();
       else p.lungeDir.copy(ball.pos).sub(p.pos).setY(0).normalize();
     }
   }
 }
-function actionSlide() {
-  const p = controlled;
+function actionPass() {
+  if (NET.mode === 'guest') { netSend({t:'act', k:'pass'}); return; }
+  actionPassFor(controlled, input);
+}
+function actionSlideFor(p, inp) {
   if (ball.owner === p) return;
   if (p.lungeT>0 || p.stunT>0) return;
   p.lungeT = 0.5; p.sliding = true; p.slideHit = false;
-  if (input.active) p.lungeDir.set(input.x,0,-input.y).normalize();
+  if (inp.active) p.lungeDir.set(inp.x,0,-inp.y).normalize();
   else if (ball.owner) p.lungeDir.copy(ball.owner.pos).sub(p.pos).setY(0).normalize();
   else p.lungeDir.copy(ball.pos).sub(p.pos).setY(0).normalize();
+}
+function actionSlide() {
+  if (NET.mode === 'guest') { netSend({t:'act', k:'slide'}); buzz(15); return; }
+  actionSlideFor(controlled, input);
   buzz(15);
 }
-function actionLob() {
-  const p = controlled;
+function actionLobFor(p) {
   if (ball.owner !== p) return;
+  const team = teams[p.team];
   let mate = null, best = -1e9;
-  for (const m of teams[0].players) {
+  for (const m of team.players) {
     if (m===p || m.isGK) continue;
-    const prog = (m.pos.x - p.pos.x)*teams[0].dir;
+    const prog = (m.pos.x - p.pos.x)*team.dir;
     const dist = m.pos.distanceTo(p.pos);
     if (dist < 12) continue;
     const sc = prog*1.5 - Math.abs(dist-24)*0.3;
     if (sc>best){best=sc; mate=m;}
   }
   if (mate) { executeLob(p, mate.pos.x + mate.vel.x*0.5, mate.pos.z + mate.vel.z*0.5); ball.receiver = mate; }
-  else executeLob(p, p.pos.x + teams[0].dir*26, p.pos.z*0.4);
+  else executeLob(p, p.pos.x + team.dir*26, p.pos.z*0.4);
+}
+function actionLob() {
+  if (NET.mode === 'guest') { netSend({t:'act', k:'lob'}); return; }
+  actionLobFor(controlled);
 }
 function manualSwitch() {
+  if (NET.mode === 'guest') { netSend({t:'act', k:'switch'}); return; }
   if (ball.owner && ball.owner.team===0) return;
   let best=null, bd=1e9;
   for (const p of teams[0].players) {
@@ -1378,12 +1670,22 @@ function manualSwitch() {
   }
   if (best) controlled = best;
 }
-function bestPassTarget(p, isHuman) {
+function manualSwitch2() {
+  if (ball.owner && ball.owner.team===1) return;
+  let best=null, bd=1e9;
+  for (const p of teams[1].players) {
+    if (p.isGK || p===controlled2) continue;
+    const d = p.pos.distanceTo(ball.pos);
+    if (d<bd){bd=d;best=p;}
+  }
+  if (best) controlled2 = best;
+}
+function bestPassTarget(p, inp) {
   const t = teams[p.team], opp = teams[1-p.team];
-  // human: the pass goes to whoever the stick points at (or who the player is facing)
-  const aim = isHuman
-    ? (input.active ? V3.set(input.x,0,-input.y).normalize()
-                    : V3.set(Math.sin(p.yaw),0,Math.cos(p.yaw)))
+  // human (inp given): the pass goes to whoever the stick points at (or who the player is facing)
+  const aim = inp
+    ? (inp.active ? V3.set(inp.x,0,-inp.y).normalize()
+                  : V3.set(Math.sin(p.yaw),0,Math.cos(p.yaw)))
     : null;
   let best=null, bestSc=-1e9;
   for (const m of t.players) {
@@ -1393,7 +1695,7 @@ function bestPassTarget(p, isHuman) {
     if (dist<3 || dist>45) continue;
     d.normalize();
     let sc = 0;
-    if (isHuman) {
+    if (aim) {
       const dot = d.dot(aim);
       if (dot < 0) continue;              // not behind the aim
       sc = dot*36 - Math.abs(dist-16)*0.15;
@@ -1449,12 +1751,12 @@ function updateTeamAI(team, dt) {
   for (const p of team.players) p.chase = false;
   const sorted = team.players.filter(p=>!p.isGK).sort((a,b)=>a.pos.distanceTo(ballFuture)-b.pos.distanceTo(ballFuture));
   let nChase = 0;
-  if (!hasBall) nChase = ball.owner ? (team.human ? (containHeld?3:2) : DIFF.press) : 2;
+  if (!hasBall) nChase = ball.owner ? (team.human ? ((team.id===0?containHeld:NET.remoteInput.contain)?3:2) : DIFF.press) : 2;
   if (cpuRally && !hasBall) nChase = Math.min(3, nChase+1);
   for (let i=0;i<nChase && i<sorted.length;i++) sorted[i].chase = true;
 
   for (const p of team.players) {
-    if (team.human && p===controlled && state==='PLAY') continue;
+    if (team.human && p===(team.id===0?controlled:controlled2) && state==='PLAY') continue;
     if (p.isGK) { gkAI(p, team, dt); continue; }
     if (ball.owner === p) { if (!team.human) carrierAI(p, team, dt); continue; }
 
@@ -1489,10 +1791,10 @@ function carrierAI(p, team, dt) {
     p.decideCd = 0.55 + Math.random()*0.4;
     const inShootZone = distGoal < 23 + (2-0)*2 && Math.abs(p.pos.z) < 17;
     if (inShootZone && (clearShotPath(p) || distGoal<12) && Math.random()<0.75) {
-      executeShot(p, 0.55+Math.random()*0.3, DIFF.shotErr); return;
+      executeShot(p, 0.55+Math.random()*0.3); return;
     }
     if (near.d < 2.6 || Math.random()<0.3) {
-      const mate = bestPassTarget(p, false);
+      const mate = bestPassTarget(p, null);
       if (mate) {
         if (Math.random() < DIFF.passErr) {
           const d = V1.copy(mate.pos).sub(p.pos).setY(0).normalize()
@@ -1587,10 +1889,12 @@ function movePlayers(dt) {
     p.loseT = Math.max(0, p.loseT-dt);
     p.kickAnim = Math.max(0, p.kickAnim-dt);
 
-    const isUser = teams[p.team].human && p===controlled && inPlay;
+    const isUser = inPlay && ((p.team===0 && teams[0].human && p===controlled)
+      || (NET.mode==='host' && p.team===1 && p===controlled2));
+    const inp = p.team===0 ? input : NET.remoteInput;
     let maxSpd = p.baseSpd;
     if (!teams[p.team].human) maxSpd = p.isGK ? p.baseSpd : DIFF.cpuSpd * (p.role==='FW'?1.05:1);
-    if (isUser && input.sprint) maxSpd *= 1.32;
+    if (isUser && inp.sprint) maxSpd *= 1.32;
     if (ball.owner===p) maxSpd *= 0.92;
     if (p.stunT>0) maxSpd = 0;
 
@@ -1610,7 +1914,7 @@ function movePlayers(dt) {
         dz = ball.pos.z + ball.vel.z*0.25 - p.pos.z;
         const dm = Math.hypot(dx,dz);
         if (dm > 0.3) { dx/=dm; dz/=dm; } else { dx=0; dz=0; }
-      } else if (input.active) { dx = input.x; dz = -input.y; }
+      } else if (inp.active) { dx = inp.x; dz = -inp.y; }
     } else {
       dx = p.target.x - p.pos.x; dz = p.target.z - p.pos.z;
       const d = Math.hypot(dx,dz);
@@ -1844,6 +2148,7 @@ function scoreGoal(scoringTeam) {
   if (scoringTeam.id === 1) matchCtx.maxDeficit = Math.max(matchCtx.maxDeficit, teams[1].score - teams[0].score);
   sCheer(); crowdPulse = 1; goalFlash = 1;
   buzz(80);
+  if (NET.mode === 'host') netSend({ t:'ev', k:'goal' });
   spawnFireworks(Math.sign(ball.pos.x)*F.HL, 0);
   restartData = { kickoffTeam: 1 - scoringTeam.id };
 }
@@ -1910,6 +2215,29 @@ function updateControlled(dt) {
     controlled = best; switchCd = 0.4;
   }
 }
+let switchCd2 = 0;
+function updateControlled2(dt) {
+  switchCd2 -= dt;
+  if (ball.owner && ball.owner.team===1) {
+    if (!ball.owner.isGK) controlled2 = ball.owner;
+    return;
+  }
+  if (!ball.owner && ball.receiver && ball.receiver.team===1 && !ball.receiver.isGK) {
+    controlled2 = ball.receiver;
+    return;
+  }
+  if (switchCd2 > 0) return;
+  const bf = V1.copy(ball.pos).addScaledVector(ball.vel, 0.3);
+  let best=null, bd=1e9;
+  for (const p of teams[1].players) {
+    if (p.isGK) continue;
+    const d = p.pos.distanceTo(bf);
+    if (d<bd){bd=d;best=p;}
+  }
+  if (best && best!==controlled2 && bd < controlled2.pos.distanceTo(bf) - 1.2) {
+    controlled2 = best; switchCd2 = 0.4;
+  }
+}
 
 /* ================= CAMERA ================= */
 const camTarget = new THREE.Vector3(0,0,0);
@@ -1958,8 +2286,9 @@ function drawRadar() {
   rctx.fillRect(mx(F.HL)-0.5, mz(-F.GW), 2.5, mz(F.GW)-mz(-F.GW));
   for (const p of allPlayers) {
     rctx.fillStyle = p.team===0 ? '#22d3ee' : oppRadarCol;
-    rctx.beginPath(); rctx.arc(mx(p.pos.x), mz(p.pos.z), p===controlled?3.4:2.2, 0, 7); rctx.fill();
-    if (p===controlled) { rctx.strokeStyle='#b8f335'; rctx.lineWidth=1.5; rctx.stroke(); rctx.lineWidth=1; }
+    const mark = (NET.mode==='guest' && allPlayers[NET.c1]) ? allPlayers[NET.c1] : controlled;
+    rctx.beginPath(); rctx.arc(mx(p.pos.x), mz(p.pos.z), p===mark?3.4:2.2, 0, 7); rctx.fill();
+    if (p===mark) { rctx.strokeStyle='#b8f335'; rctx.lineWidth=1.5; rctx.stroke(); rctx.lineWidth=1; }
   }
   rctx.fillStyle = '#fff';
   rctx.beginPath(); rctx.arc(mx(ball.pos.x), mz(ball.pos.z), 2.6, 0, 7); rctx.fill();
@@ -1969,7 +2298,7 @@ function drawRadar() {
 let lastT = performance.now();
 function loop(now) {
   requestAnimationFrame(loop);
-  const dt = Math.min(0.033, (now-lastT)/1000);
+  const dt = Math.max(0, Math.min(0.033, (now-lastT)/1000));
   lastT = now; perfNow = now/1000;
 
   if (state==='PAUSED') { renderer.render(scene, camera); return; }
@@ -1990,6 +2319,8 @@ function loop(now) {
     shootRing.style.setProperty('--pw', pct + '%');
     shootRing.style.setProperty('--pwc', pct > 85 ? '#ef4444' : '#b8f335');
   }
+
+  if (NET.mode === 'guest') { guestFrame(dt, now); return; }
 
   if (state==='KICKOFF' || state==='RESTART') {
     stateT -= dt;
@@ -2035,6 +2366,7 @@ function loop(now) {
       halfOrEnd();
     } else {
       updateControlled(dt);
+      if (NET.mode==='host') updateControlled2(dt);
       updateTeamAI(teams[0], dt);
       updateTeamAI(teams[1], dt);
       movePlayers(dt);
@@ -2054,6 +2386,15 @@ function loop(now) {
     }
   }
 
+  if (NET.mode === 'host') {
+    NET.sendAcc = Math.max(0, NET.sendAcc) + dt;
+    if (NET.sendAcc >= 0.05) { NET.sendAcc = 0; netSend(netSnapshot()); }
+  }
+
+  commonVisuals(dt, now);
+}
+
+function commonVisuals(dt, now) {
   setBtnMode(oppHasBall() ? 'def' : 'atk');
 
   ballShadow.position.x = ball.pos.x; ballShadow.position.z = ball.pos.z;
@@ -2075,9 +2416,10 @@ function loop(now) {
     t.s.scale.set(sc,sc,1);
   }
 
+  const mk = (NET.mode==='guest' && allPlayers[NET.c1]) ? allPlayers[NET.c1] : controlled;
   if (state!=='MENU' && state!=='FULLTIME') {
-    ringMark.position.set(controlled.pos.x, 0.03, controlled.pos.z);
-    arrowMark.position.set(controlled.pos.x, 2.3 + Math.sin(now*0.005)*0.12, controlled.pos.z);
+    ringMark.position.set(mk.pos.x, 0.03, mk.pos.z);
+    arrowMark.position.set(mk.pos.x, 2.3 + Math.sin(now*0.005)*0.12, mk.pos.z);
     ringMark.visible = arrowMark.visible = true;
   } else { ringMark.visible = arrowMark.visible = false; }
 
