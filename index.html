@@ -444,7 +444,7 @@
 <div class="screen" id="startscreen" data-screen-label="Главное меню">
   <div class="menucard">
     <h1><span>НЕОН</span>-ЛИГА</h1>
-    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V4.0</div>
+    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V4.1</div>
     <div id="playerbar">
       <span id="pb-level">УРОВЕНЬ <b>1</b></span>
       <span id="pb-coins">🪙 <b>0</b></span>
@@ -2083,14 +2083,15 @@ const commTextEl = document.getElementById('commtext');
 let commHideT = 0, commIdleT = 16;
 const commCd = {};
 
-/* ---- голос комментатора: Web Speech API, русский голос системы ---- */
-let voiceRu = null;
+/* ---- голос комментатора: Web Speech API, мужской русский голос ---- */
+let voiceRu = null, voiceMale = false;
 function initVoice() {
   if (!('speechSynthesis' in window)) return;
   const pick = () => {
-    const vs = speechSynthesis.getVoices();
-    voiceRu = vs.find(v => /^ru/i.test(v.lang) && /google|milena|premium/i.test(v.name))
-           || vs.find(v => /^ru/i.test(v.lang)) || null;
+    const vs = speechSynthesis.getVoices().filter(v => /^ru/i.test(v.lang));
+    const male = vs.find(v => /yuri|юри|dmitr|дмитр|pavel|павел|aleks|алекс|artem|артём|male|муж/i.test(v.name));
+    voiceMale = !!male;
+    voiceRu = male || vs.find(v => /google/i.test(v.name)) || vs[0] || null;
   };
   pick();
   speechSynthesis.addEventListener('voiceschanged', pick);
@@ -2105,8 +2106,9 @@ function speak(txt, excited) {
          .replace(/[🟨🟥⚽🧤⭐🎙•]/g, ''));
     u.lang = 'ru-RU';
     if (voiceRu) u.voice = voiceRu;
-    u.rate = excited ? 1.22 : 1.05;
-    u.pitch = excited ? 1.3 : 1.05;
+    u.rate = excited ? 1.18 : 1.02;
+    // мужской голос — обычный тон; если в системе только женский, опускаем тон до баритона
+    u.pitch = voiceMale ? (excited ? 1.12 : 0.95) : (excited ? 0.8 : 0.68);
     u.volume = 1;
     speechSynthesis.speak(u);
   } catch(e) {}
