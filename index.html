@@ -138,6 +138,32 @@
     box-shadow:0 4px 0 #4d7a0a, inset 0 1px 0 rgba(255,255,255,.5), 0 0 22px rgba(184,243,53,.3); }
   #tacrow .opt{ display:flex; flex-direction:column; align-items:center; gap:1px; padding:9px 18px; line-height:1.1; }
   #tacrow .opt i{ font-style:normal; font-size:10px; letter-spacing:.14em; font-weight:600; opacity:.62; }
+  .bsc-tag{ font-size:10px; letter-spacing:.12em; color:#8fa0bc; font-weight:700; margin-top:-4px; }
+  /* ===== lineup screen ===== */
+  .lineupcard{ max-width:520px; width:min(520px,94vw); }
+  .coachrow{ font-size:13px; color:#9fb0cc; margin:6px 0 10px; }
+  .coachrow b{ color:#eaf1ff; }
+  .lu-sec{ font-size:11px; letter-spacing:.3em; color:#8fa0bc; font-weight:700; margin:10px 0 6px; text-align:left; }
+  .lulist{ display:flex; flex-direction:column; gap:4px; max-height:32vh; overflow-y:auto; }
+  .lurow{ display:flex; align-items:center; gap:9px; padding:6px 12px; border-radius:10px; cursor:pointer;
+    background:linear-gradient(180deg,#1b2440,#141c30); text-align:left;
+    border:1px solid transparent; transition:border-color .12s, background .12s; }
+  .lurow.sel{ border-color:var(--lime); background:linear-gradient(180deg,#26324f,#1a2338); }
+  .lurow .lunum{ width:26px; text-align:center; font-size:13px; color:#8fa0bc; }
+  .lurow .luname{ flex:1; font-size:14px; font-weight:700; letter-spacing:.05em; }
+  .lurow .lupos{ font-style:normal; font-size:10.5px; letter-spacing:.12em; color:#8fa0bc; width:26px; }
+  .lurow .luovr{ width:34px; text-align:center; font-size:14px; font-weight:800; border-radius:8px; padding:2px 0; }
+  .luovr.o1{ background:#3a4254; color:#cdd8ea; } .luovr.o2{ background:#1d4f46; color:#7ef0c8; }
+  .luovr.o3{ background:#54430e; color:#ffd21a; }
+  .lurow .luinj{ font-size:13px; }
+  .lurow .lurate{ font-size:12.5px; font-weight:800; width:34px; text-align:center; }
+  @media (max-width:620px){ .lulist{ max-height:27vh; } .lurow{ padding:5px 9px; } .lurow .luname{ font-size:12.5px; } }
+  /* ratings grid on the end screen */
+  #ratinggrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); gap:5px; margin-top:12px; }
+  #ratinggrid .rg{ display:flex; align-items:center; gap:6px; padding:4px 8px; border-radius:8px;
+    background:rgba(20,28,48,.85); font-size:11.5px; font-weight:700; }
+  #ratinggrid .rg b{ margin-left:auto; font-size:12.5px; }
+  #ratinggrid .rg.best{ outline:1.5px solid #ffd21a; }
   #playbtn{ margin-top:26px; width:min(340px,100%); padding:18px 20px; font-size:23px; font-weight:800; font-style:italic;
     letter-spacing:.22em; color:#122202; background:linear-gradient(180deg,#e6ff8d 0%,#c3f23e 45%,#96d51c 100%);
     border:none; border-radius:18px; cursor:pointer; position:relative; overflow:hidden;
@@ -444,7 +470,7 @@
 <div class="screen" id="startscreen" data-screen-label="Главное меню">
   <div class="menucard">
     <h1><span>НЕОН</span>-ЛИГА</h1>
-    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V4.2</div>
+    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V4.3</div>
     <div id="playerbar">
       <span id="pb-level">УРОВЕНЬ <b>1</b></span>
       <span id="pb-coins">🪙 <b>0</b></span>
@@ -460,6 +486,12 @@
       <div class="opt" data-d="0">ЛЁГКАЯ</div>
       <div class="opt sel" data-d="1">СРЕДНЯЯ</div>
       <div class="opt" data-d="2">СЛОЖНАЯ</div>
+    </div>
+    <div class="optlabel">СОПЕРНИК</div>
+    <div class="optrow" id="opprow">
+      <div class="opt sel" data-o="magma">МАГМА</div>
+      <div class="opt" data-o="storm">ШТОРМ</div>
+      <div class="opt" data-o="volt">ВОЛЬТ</div>
     </div>
     <div class="optlabel">ТАКТИКА</div>
     <div class="optrow" id="tacrow">
@@ -501,7 +533,12 @@
     <div class="stats">
       <div class="statrow"><b id="st-poss0">50%</b><span>ВЛАДЕНИЕ</span><b id="st-poss1">50%</b></div>
       <div class="statrow"><b id="st-shots0">0</b><span>УДАРЫ</span><b id="st-shots1">0</b></div>
+      <div class="statrow"><b id="st-ont0">0</b><span>В СТВОР</span><b id="st-ont1">0</b></div>
+      <div class="statrow"><b id="st-fouls0">0</b><span>ФОЛЫ</span><b id="st-fouls1">0</b></div>
+      <div class="statrow"><b id="st-offs0">0</b><span>ОФСАЙДЫ</span><b id="st-offs1">0</b></div>
+      <div class="statrow"><b id="st-cards0">0</b><span>КАРТОЧКИ</span><b id="st-cards1">0</b></div>
     </div>
+    <div id="ratinggrid"></div>
     <div class="btnrow">
       <button class="mbtn primary" id="rematchbtn">РЕВАНШ</button>
       <button class="mbtn" id="menubtn">МЕНЮ</button>
@@ -514,6 +551,7 @@
     <div class="endtitle">ПАУЗА</div>
     <div class="btnrow col">
       <button class="mbtn primary" id="resumebtn">ПРОДОЛЖИТЬ</button>
+      <button class="mbtn" id="subsbtn">🔁 ЗАМЕНЫ (<span id="subsleft2">3</span>)</button>
       <button class="mbtn" id="restartbtn">ЗАНОВО</button>
       <button class="mbtn" id="quitbtn">В МЕНЮ</button>
     </div>
@@ -531,6 +569,21 @@
     <div class="optlabel">ЛУЧШИЕ МАТЧИ</div>
     <div class="bestlist" id="bestlist"></div>
     <div class="btnrow backrow"><button class="mbtn" data-back>НАЗАД</button></div>
+  </div>
+</div>
+
+<div class="screen" id="lineupscreen" style="display:none" data-screen-label="Состав">
+  <div class="menucard lineupcard">
+    <div class="endtitle" id="lineuptitle">СОСТАВ НА МАТЧ</div>
+    <div class="coachrow">👔 Тренер: <b>БОРИС НЕОНОВ</b> · Замен осталось: <b id="subsleft">3</b></div>
+    <div class="lu-sec">СТАРТОВЫЙ СОСТАВ · тапни игрока, потом запасного</div>
+    <div id="lustart" class="lulist"></div>
+    <div class="lu-sec">СКАМЕЙКА ЗАПАСНЫХ</div>
+    <div id="lubench" class="lulist"></div>
+    <div class="btnrow">
+      <button class="mbtn primary" id="lineupgo">▶ НАЧАТЬ МАТЧ</button>
+      <button class="mbtn" id="lineupback">НАЗАД</button>
+    </div>
   </div>
 </div>
 
@@ -561,6 +614,7 @@
   <div class="menucard">
     <div class="endtitle">НАСТРОЙКИ</div>
     <div class="togglerow"><b>ЗВУК</b><div class="tgl" id="tgl-sound"></div></div>
+    <div class="togglerow"><b>МУЗЫКА</b><div class="tgl" id="tgl-music"></div></div>
     <div class="togglerow"><b>ГОЛОС КОММЕНТАТОРА</b><div class="tgl" id="tgl-voice"></div></div>
     <div class="togglerow"><b>ВИБРАЦИЯ</b><div class="tgl" id="tgl-vibro"></div></div>
     <div class="btnrow backrow"><button class="mbtn" data-back>НАЗАД</button></div>
@@ -851,7 +905,7 @@ ballShadow.rotation.x = -Math.PI/2; ballShadow.position.y = 0.025; scene.add(bal
 const ball = {
   pos: ballMesh.position, vel: new THREE.Vector3(),
   owner: null, lastKicker: null, kickT: -9, lastTouchTeam: 0,
-  receiver: null,
+  receiver: null, assist: null,
 };
 ball.pos.set(0, BALL_R, 0);
 
@@ -974,6 +1028,22 @@ function buildPlayerMesh(cfg) {
   const b = buildBody(cfg);
   const sh = new THREE.Mesh(GEO.shadow, shadowMat);
   sh.rotation.x = -Math.PI/2; sh.position.y = 0.02; b.g.add(sh);
+  // номер на спине (canvas-текстура, обновляется при смене состава)
+  const cv = document.createElement('canvas'); cv.width = 64; cv.height = 64;
+  const cx = cv.getContext('2d');
+  const tex = new THREE.CanvasTexture(cv);
+  const pl = new THREE.Mesh(new THREE.PlaneGeometry(0.30, 0.30),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+  pl.position.set(0, 1.23, -0.18); pl.rotation.y = Math.PI; b.g.add(pl);
+  b.setNum = n => {
+    cx.clearRect(0, 0, 64, 64);
+    if (n !== '' && n != null) {
+      cx.font = '800 40px Arial'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+      cx.strokeStyle = 'rgba(0,0,0,.5)'; cx.lineWidth = 6; cx.strokeText(n, 32, 34);
+      cx.fillStyle = '#ffffff'; cx.fillText(n, 32, 34);
+    }
+    tex.needsUpdate = true;
+  };
   scene.add(b.g);
   return b;
 }
@@ -1109,6 +1179,10 @@ for (const team of teams) {
       isStar: i === 9,                    // № 10: the team's star — faster, sharper, harder to dispossess
       baseSpd: (isGK?6.8 : spec.role==='FW'?7.7 : spec.role==='DF'?7.2:7.5) * (i===9 ? 1.12 : 1),
     };
+    const DEFNUMS = [1,2,3,4,5,6,8,14,17,10,9];
+    p.num = DEFNUMS[i]; p.ovr = 72; p.ovrM = 1; p.name = '';
+    p.rating = 6.5; p.injured = false;
+    mesh.setNum(p.num);
     team.players.push(p); allPlayers.push(p);
   });
 }
@@ -1122,7 +1196,8 @@ function applyTactic(team, tacticId) {
   team.players.forEach((p, i) => {
     const spec = tac.form[i]; if (!spec || p.isGK) return;
     p.role = spec.role; p.fx = spec.fx; p.fz = spec.fz;
-    p.baseSpd = (spec.role==='FW'?7.7 : spec.role==='DF'?7.2 : 7.5) * tac.spdMul * (p.isStar ? 1.12 : 1);
+    p.baseSpd = (spec.role==='FW'?7.7 : spec.role==='DF'?7.2 : 7.5) * tac.spdMul
+      * (p.isStar ? 1.1 : 1) * (p.ovrM || 1) * (p.injured ? 0.62 : 1);
   });
 }
 teams.forEach(t => applyTactic(t, 'balance'));
@@ -1192,6 +1267,33 @@ const varTV = (() => {
   g.position.set(x, 0, z);          // far touchline, screen faces the pitch
   scene.add(g);
   return { g, x, z, tex, drawScreen };
+})();
+
+/* ---- скамейка запасных + тренер у дальней бровки ---- */
+(() => {
+  const bz = -(F.HW + 3.2);
+  const bench = new THREE.Mesh(new THREE.BoxGeometry(7.5, 0.5, 1.0), lamb(0x1a2438));
+  bench.position.set(11, 0.5, bz); scene.add(bench);
+  for (const [lx2, sx] of [[-3.4,-1],[3.4,1]]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.5, 0.8), lamb(0x121a2c));
+    leg.position.set(11 + lx2, 0.25, bz); scene.add(leg);
+  }
+  for (let i=0;i<4;i++) {           // запасные сидят
+    const b = buildBody({ kit:0x00c8ef, shorts:0x07263a, sock:0x00c8ef,
+      skin: SKINS[(Math.random()*SKINS.length)|0], hair: HAIRC[(Math.random()*HAIRC.length)|0],
+      boot:0x14161c, style:(Math.random()*3)|0, gk:false });
+    b.g.position.set(8.3 + i*1.8, -0.32, bz); b.g.rotation.y = 0;
+    b.hipL.rotation.x = 1.5; b.hipR.rotation.x = 1.5;
+    b.kneeL.rotation.x = -1.5; b.kneeR.rotation.x = -1.5;
+    b.elL.rotation.x = 0.5; b.elR.rotation.x = 0.5;
+    scene.add(b.g);
+  }
+  const coach = buildBody({ kit:0x161a24, shorts:0x10141c, sock:0x10141c,
+    skin: SKINS[1], hair: 0x2e1c0d, boot:0x0c0e14, style:0, gk:false });
+  coach.g.position.set(4.6, 0, bz + 1.0);      // тренер стоит у линии, руки скрещены
+  coach.elL.rotation.x = 1.9; coach.elR.rotation.x = 1.9;
+  coach.shL.rotation.x = -0.5; coach.shR.rotation.x = -0.5;
+  scene.add(coach.g);
 })();
 
 function offsideLineX(dir) {
@@ -1282,6 +1384,7 @@ function initAudio() {
     crowdGain = AC.createGain(); crowdGain.gain.value = 0.0;
     src.connect(bp); bp.connect(crowdGain); crowdGain.connect(masterGain);
     src.start();
+    startMusic();
   } catch(e) {}
 }
 function crowdLevel(v, t) { if (crowdGain) crowdGain.gain.setTargetAtTime(v, AC.currentTime, t ?? 0.5); }
@@ -1356,6 +1459,52 @@ function noiseShot(dur, f0, f1, vol, q) {
 }
 function sOoh() { noiseShot(1.1, 720, 260, 0.30, 1.1); crowdPulse = Math.max(crowdPulse, 0.6); }  // near-miss gasp
 function sBoo() { noiseShot(1.7, 270, 175, 0.26, 2.4); }                                          // displeased whistles
+
+/* ---- синтвейв-саундтрек: бас-секвенсор + пад, всё генерируется кодом ---- */
+let musTimer = null, musGain = null, musStep = 0, musNext = 0;
+const MUS_BASS = [33, 33, 36, 33, 31, 31, 38, 40];        // A1 A1 C2 A1 G1 G1 D2 E2
+const midiF = m => 440 * Math.pow(2, (m - 69) / 12);
+function startMusic() {
+  if (!AC || musTimer || !SAVE.set.music) return;
+  musGain = AC.createGain();
+  musGain.gain.value = document.body.classList.contains('playing') ? 0.05 : 0.13;
+  musGain.connect(masterGain);
+  musStep = 0; musNext = AC.currentTime + 0.06;
+  musTimer = setInterval(() => {
+    if (!AC || !musGain) return;
+    while (musNext < AC.currentTime + 0.35) {
+      const t = musNext, m = MUS_BASS[musStep % 8];
+      const o = AC.createOscillator(), g = AC.createGain(), lp = AC.createBiquadFilter();
+      o.type = 'sawtooth'; o.frequency.value = midiF(m);
+      lp.type = 'lowpass'; lp.Q.value = 6;
+      lp.frequency.setValueAtTime(950, t); lp.frequency.exponentialRampToValueAtTime(210, t + 0.2);
+      g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.22);
+      o.connect(lp); lp.connect(g); g.connect(musGain);
+      o.start(t); o.stop(t + 0.24);
+      if (musStep % 4 === 2) {                        // блик-арпеджио на офф-бите
+        const o2 = AC.createOscillator(), g2 = AC.createGain();
+        o2.type = 'triangle'; o2.frequency.value = midiF(m + 24);
+        g2.gain.setValueAtTime(0.16, t + 0.12); g2.gain.exponentialRampToValueAtTime(0.005, t + 0.3);
+        o2.connect(g2); g2.connect(musGain); o2.start(t + 0.12); o2.stop(t + 0.32);
+      }
+      if (musStep % 16 === 0) {                       // долгий пад раз в такт
+        for (const dm of [12, 19]) {
+          const o3 = AC.createOscillator(), g3 = AC.createGain();
+          o3.type = 'sine'; o3.frequency.value = midiF(m + dm);
+          g3.gain.setValueAtTime(0.0001, t); g3.gain.linearRampToValueAtTime(0.07, t + 1.2);
+          g3.gain.exponentialRampToValueAtTime(0.003, t + 3.6);
+          o3.connect(g3); g3.connect(musGain); o3.start(t); o3.stop(t + 3.7);
+        }
+      }
+      musStep++; musNext += 0.24;                     // ≈125 BPM восьмыми
+    }
+  }, 120);
+}
+function stopMusic() {
+  if (musTimer) { clearInterval(musTimer); musTimer = null; }
+  if (musGain) { try { musGain.disconnect(); } catch(e) {} musGain = null; }
+}
+function musicDuck(playing) { if (musGain && AC) musGain.gain.setTargetAtTime(playing ? 0.05 : 0.13, AC.currentTime, 0.8); }
 
 /* ================= INPUT ================= */
 const keys = {};
@@ -1473,6 +1622,39 @@ function setBtnMode(m) {
   touchControls.classList.toggle('def', m==='def' || m==='gk');
 }
 
+/* ================= SQUAD / ROSTER ================= */
+const COACH = { name: 'БОРИС НЕОНОВ' };
+const ROSTER = [ // стартовые 11 (слоты: 0 GK · 1-4 DF · 5-8 MF · 9-10 FW)
+  { id:'b_gk',  name:'СТРАЖ',   pos:'GK', ovr:74, num:1  },
+  { id:'b_df1', name:'БАЗАЛЬТ', pos:'DF', ovr:71, num:2  },
+  { id:'b_df2', name:'ГРАНИТ',  pos:'DF', ovr:72, num:3  },
+  { id:'b_df3', name:'АТЛАНТ',  pos:'DF', ovr:70, num:4  },
+  { id:'b_df4', name:'КРЕМЕНЬ', pos:'DF', ovr:69, num:5  },
+  { id:'b_mf1', name:'РОТОР',   pos:'MF', ovr:73, num:6  },
+  { id:'b_mf2', name:'ИМПУЛЬС', pos:'MF', ovr:74, num:8  },
+  { id:'b_mf3', name:'КВАНТ',   pos:'MF', ovr:72, num:14 },
+  { id:'b_mf4', name:'ФОТОН',   pos:'MF', ovr:70, num:17 },
+  { id:'b_fw1', name:'ПРИЗМА',  pos:'FW', ovr:78, num:10 },
+  { id:'b_fw2', name:'ЛЮМЕН',   pos:'FW', ovr:75, num:9  },
+  // скамейка по умолчанию
+  { id:'s_gk',  name:'РЕЗЕРВ',  pos:'GK', ovr:66, num:12 },
+  { id:'s_df',  name:'ЩИТ',     pos:'DF', ovr:66, num:15 },
+  { id:'s_mf',  name:'ЮНГА',    pos:'MF', ovr:65, num:20 },
+  { id:'s_fw',  name:'ВСПЫШКА', pos:'FW', ovr:67, num:21 },
+];
+const SHOP_PLAYERS = [ // легионеры — покупаются в магазине, попадают на скамейку
+  { id:'pl_neonx',  name:'НЕОН-X', pos:'FW', ovr:95, num:99, price:1200, tag:'СУПЕРЗВЕЗДА' },
+  { id:'pl_sniper', name:'РАЗРЯД', pos:'FW', ovr:92, num:11, price:1100, tag:'СНАЙПЕР' },
+  { id:'pl_maker',  name:'ВЕКТОР', pos:'MF', ovr:90, num:18, price:1000, tag:'ПЛЕЙМЕЙКЕР' },
+  { id:'pl_cat',    name:'РЫСЬ',   pos:'GK', ovr:89, num:33, price:850,  tag:'ВРАТАРЬ-КОТ' },
+  { id:'pl_drib',   name:'ВИХРЬ',  pos:'MF', ovr:88, num:7,  price:800,  tag:'ДРИБЛЕР' },
+  { id:'pl_wall',   name:'БЕТОН',  pos:'DF', ovr:87, num:24, price:650,  tag:'СТЕНА' },
+  { id:'pl_spark',  name:'ИСКРА',  pos:'MF', ovr:83, num:23, price:500,  tag:'УНИВЕРСАЛ' },
+];
+const ROSTER_ALL = [...ROSTER, ...SHOP_PLAYERS];
+const pdataById = id => ROSTER_ALL.find(r => r.id === id);
+const ovrMul = ovr => 1 + (ovr - 72) * 0.005;   // 65 → ×0.965 … 95 → ×1.115
+
 /* ================= PROGRESSION / SAVE ================= */
 const SAVE_KEY = 'neonliga_save_v1';
 const DEFAULT_SAVE = {
@@ -1480,7 +1662,8 @@ const DEFAULT_SAVE = {
   streak:0, bestStreak:0, matches:0, rating:1000, totalGoals:0,
   ach:{}, owned:{ kit_cyan:1, ball_classic:1, trail_cyan:1, arena_night:1 },
   eq:{ kit:'kit_cyan', ball:'ball_classic', trail:'trail_cyan', arena:'arena_night' },
-  set:{ sound:true, vibro:true, voice:true },
+  set:{ sound:true, vibro:true, voice:true, music:true },
+  squad:null,
   cup:{ round:0, done:false },
   best:[],
 };
@@ -1493,6 +1676,16 @@ SAVE.eq = Object.assign({}, DEFAULT_SAVE.eq, SAVE.eq);
 SAVE.set = Object.assign({}, DEFAULT_SAVE.set, SAVE.set);
 SAVE.cup = Object.assign({}, DEFAULT_SAVE.cup, SAVE.cup);
 SAVE.best = SAVE.best || [];
+// состав: миграция старых сейвов + купленные легионеры всегда в обойме
+if (!SAVE.squad || !Array.isArray(SAVE.squad.start) || SAVE.squad.start.length !== 11) {
+  SAVE.squad = { start: ROSTER.slice(0, 11).map(r => r.id), bench: ROSTER.slice(11).map(r => r.id) };
+}
+for (const sp of SHOP_PLAYERS) {
+  if (SAVE.owned[sp.id] && !SAVE.squad.start.includes(sp.id) && !SAVE.squad.bench.includes(sp.id))
+    SAVE.squad.bench.push(sp.id);
+}
+SAVE.squad.start = SAVE.squad.start.map((id, i) => pdataById(id) ? id : ROSTER[i].id);
+SAVE.squad.bench = SAVE.squad.bench.filter(id => pdataById(id));
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); } catch(e) {} }
 function levelOf(xp) { let l = 1; while (xp >= 100*l) { xp -= 100*l; l++; } return l; }
 function levelProgress(xp) { let l = 1; while (xp >= 100*l) { xp -= 100*l; l++; } return xp/(100*l); }
@@ -1516,6 +1709,8 @@ const SHOP = [
   { id:'arena_sunset', cat:'АРЕНА', name:'Закат', price:600, c:0xff8a2e },
   { id:'arena_ice',    cat:'АРЕНА', name:'Лёд',   price:600, c:0x7df9ff },
 ];
+for (const sp of SHOP_PLAYERS)
+  SHOP.push({ id:sp.id, cat:'ИГРОКИ', name:`${sp.name} · ${sp.ovr}`, price:sp.price, c:0x22d3ee, pl:sp });
 const CAT2EQ = { 'ФОРМА':'kit', 'МЯЧ':'ball', 'СЛЕД':'trail', 'АРЕНА':'arena' };
 const ARENAS = {
   arena_night:  { bg:0x070b1c, sa:0x0c5a2c, sb:0x0e6a34, na:0x00e5ff, nb:0xff3da0 },
@@ -1663,25 +1858,45 @@ function renderProfile() {
 function renderShop() {
   genThumbs();
   updateShopCoins(false);
-  const cats = ['ФОРМА','МЯЧ','СЛЕД','АРЕНА'];
-  const CATICO = { 'ФОРМА':'👕', 'МЯЧ':'⚽', 'СЛЕД':'✨', 'АРЕНА':'🏟' };
+  const cats = ['ИГРОКИ','ФОРМА','МЯЧ','СЛЕД','АРЕНА'];
+  const CATICO = { 'ИГРОКИ':'🌟', 'ФОРМА':'👕', 'МЯЧ':'⚽', 'СЛЕД':'✨', 'АРЕНА':'🏟' };
   document.getElementById('shopbody').innerHTML = cats.map(cat => {
     const list = SHOP.filter(i => i.cat === cat);
     const ownedN = list.filter(i => SAVE.owned[i.id]).length;
     const cards = list.map(i => {
       const r = rarOf(i), owned = SAVE.owned[i.id], eq = SAVE.eq[CAT2EQ[cat]] === i.id;
-      const btn = eq ? `<div class="bsc-btn worn">✓ НАДЕТО</div>`
+      const btn = i.pl
+        ? (owned ? `<div class="bsc-btn worn">✓ В КОМАНДЕ</div>`
+                 : `<div class="bsc-btn price${SAVE.coins < i.price ? ' locked' : ''}">🪙 ${i.price}</div>`)
+        : eq ? `<div class="bsc-btn worn">✓ НАДЕТО</div>`
         : owned ? `<div class="bsc-btn wear">НАДЕТЬ</div>`
         : `<div class="bsc-btn price${SAVE.coins < i.price ? ' locked' : ''}">🪙 ${i.price}</div>`;
+      const sub = i.pl ? `<div class="bsc-tag">${i.pl.tag} · ${i.pl.pos}</div>` : '';
       return `<div class="bsc r${r}${eq ? ' eq' : ''}" data-shop="${i.id}">
         <div class="bsc-rar">${RARS[r]}</div>
         <div class="bsc-art"><img src="${thumbs[i.id] || ''}" alt="" draggable="false"></div>
-        <div class="bsc-name">${i.name}</div>${btn}</div>`;
+        <div class="bsc-name">${i.name}</div>${sub}${btn}</div>`;
     }).join('');
     return `<section class="shopcat"><h3><em>${CATICO[cat]}</em>${cat}<span>${ownedN}/${list.length}</span></h3><div class="bsgrid">${cards}</div></section>`;
   }).join('');
   document.querySelectorAll('#shopbody [data-shop]').forEach(card => card.addEventListener('click', () => {
     const item = SHOP.find(i => i.id === card.dataset.shop);
+    if (item.pl) {                              // легионер: покупка → на скамейку
+      if (SAVE.owned[item.id]) { toast(`${item.pl.name} уже в команде — смотри СОСТАВ`); return; }
+      if (SAVE.coins < item.price) {
+        card.classList.remove('deny'); void card.offsetWidth; card.classList.add('deny');
+        toast('Не хватает монет 🪙'); sDeny();
+        return;
+      }
+      SAVE.coins -= item.price; SAVE.owned[item.id] = 1;
+      SAVE.squad.bench.push(item.id);
+      persist(); sBuy(); buzz(20);
+      card.classList.add('bought');
+      updateShopCoins(true);
+      toast(`🌟 ${item.pl.name} (${item.pl.ovr}) в команде! Он на скамейке.`);
+      setTimeout(renderShop, 480);
+      return;
+    }
     const eqKey = CAT2EQ[item.cat];
     if (!SAVE.owned[item.id]) {
       if (SAVE.coins < item.price) {
@@ -1748,6 +1963,16 @@ function genThumbs() {
         new THREE.MeshLambertMaterial({ map: bTex, color: it.c, emissive: it.c, emissiveIntensity: 0.22 }));
       m.rotation.set(0.4, 0.7, 0);
       thumbs[it.id] = shoot(m, 0, 0.35, 1.62, 0, 0, 0);
+    } else if (it.cat === 'ИГРОКИ') {
+      const gk = it.pl.pos === 'GK';
+      const b = buildBody({ kit: gk ? 0xffe14d : 0x00c8ef, shorts: 0x07263a, sock: gk ? 0xffe14d : 0x00c8ef,
+        skin: SKINS[(Math.random()*SKINS.length)|0], hair: HAIRC[(Math.random()*HAIRC.length)|0],
+        boot: 0x14161c, style: (Math.random()*3)|0, gk });
+      b.g.rotation.y = 0.35;
+      b.shL.rotation.x = -2.6; b.shR.rotation.x = -2.6;   // руки вверх — звезда пришла!
+      b.elL.rotation.x = 0.15; b.elR.rotation.x = 0.15;
+      b.shL.rotation.z = -0.3; b.shR.rotation.z = 0.3;
+      thumbs[it.id] = shoot(b.g, 0.1, 1.5, 2.6, 0, 1.0, 0);
     } else if (it.cat === 'СЛЕД') {
       const grp = new THREE.Group();
       const m = new THREE.Mesh(new THREE.SphereGeometry(0.34, 22, 16),
@@ -1800,9 +2025,15 @@ function renderCup() {
 }
 function renderSettings() {
   document.getElementById('tgl-sound').classList.toggle('on', SAVE.set.sound);
+  document.getElementById('tgl-music').classList.toggle('on', SAVE.set.music);
   document.getElementById('tgl-voice').classList.toggle('on', SAVE.set.voice);
   document.getElementById('tgl-vibro').classList.toggle('on', SAVE.set.vibro);
 }
+document.getElementById('tgl-music').addEventListener('click', function() {
+  SAVE.set.music = !SAVE.set.music; persist();
+  this.classList.toggle('on', SAVE.set.music);
+  if (SAVE.set.music) { initAudio(); startMusic(); } else stopMusic();
+});
 document.getElementById('tgl-sound').addEventListener('click', function() {
   SAVE.set.sound = !SAVE.set.sound; persist();
   this.classList.toggle('on', SAVE.set.sound);
@@ -1819,14 +2050,16 @@ document.getElementById('tgl-vibro').addEventListener('click', function() {
   this.classList.toggle('on', SAVE.set.vibro);
 });
 document.getElementById('cupplay').addEventListener('click', () => {
-  if (SAVE.cup.done) { SAVE.cup.round = 0; SAVE.cup.done = false; persist(); }
-  const r = CUP_ROUNDS[SAVE.cup.round];
-  matchMode = 'cup';
-  DIFF = r.d < 3 ? DIFFS[r.d] : CUP_FINAL_DIFF;
-  oppTacticId = r.d >= 2 ? 'attack' : r.d === 1 ? 'balance' : 'defense';
-  setOpponent(r);
   document.getElementById('cupscreen').style.display = 'none';
-  startMatch();
+  showLineup('pre', () => {
+    if (SAVE.cup.done) { SAVE.cup.round = 0; SAVE.cup.done = false; persist(); }
+    const r = CUP_ROUNDS[SAVE.cup.round];
+    matchMode = 'cup';
+    DIFF = r.d < 3 ? DIFFS[r.d] : CUP_FINAL_DIFF;
+    oppTacticId = r.d >= 2 ? 'attack' : r.d === 1 ? 'balance' : 'defense';
+    setOpponent(r);
+    startMatch();
+  });
 });
 
 /* ================= ONLINE (WebRTC / PeerJS) ================= */
@@ -2072,7 +2305,7 @@ document.getElementById('onlineback').addEventListener('click', () => netCleanup
 let state = 'MENU';
 let stateT = 0, half = 1, matchT = 0, prevState = 'PLAY';
 let restartData = null, menuOrbit = 0, goalFlash = 0, crowdPulse = 0, celebCam = null;
-const stats = { poss:[0,0], shots:[0,0] };
+const stats = { poss:[0,0], shots:[0,0], onT:[0,0], fouls:[0,0], offs:[0,0] };
 
 const msgEl = document.getElementById('msg');
 function showMsg(t, sub) {
@@ -2138,6 +2371,8 @@ const COMM = {
   soMiss: ['Промах! Невероятно!', 'Вратарь угадал направление!', 'Мимо! Какой шанс упущен!'],
   tackle: ['Чистейший отбор!', 'Мяч аккуратно снят с ноги.', 'Отличная работа в обороне!'],
   starGoal: ['ЗВЕЗДА СИЯЕТ! Гол — %s!', 'Десятый номер решает — %s!', 'Вот почему он звезда! %s!'],
+  injury: ['Игрок остаётся лежать... похоже, травма.', 'Держится за ногу — нужна помощь медиков.', 'Неприятно. Это может быть повреждение.'],
+  sub: ['Замена: свежие ноги в игре!', 'Тренер решается на замену.', 'Со скамейки выходит новый игрок.'],
   lead0: ['НЕОН контролирует игру.', 'Хозяева уверенно ведут дело к победе.', 'Сопернику нужно срочно что-то менять.'],
   lead1: ['НЕОН должен прибавить.', 'Гости пока выглядят сильнее.', 'Трибуны ждут ответа НЕОНА.'],
   drawIdle: ['Равная игра — всё решится в концовке.', 'Команды осторожничают.', 'Ничейный счёт держит интригу.'],
@@ -2278,11 +2513,112 @@ function setRestart(type, x, z, teamId, msg) {
   hideCharge();
 }
 
+/* ================= LINEUP / SUBS / INJURIES ================= */
+let subsLeft = 3, usedBench = new Set(), lineupMode = 'pre', lineupSel = null, pendingKick = null;
+const luStartEl = document.getElementById('lustart'), luBenchEl = document.getElementById('lubench');
+
+function setPData(p, pd) {                 // навесить данные ростера на полевого игрока
+  p.pdata = pd; p.name = pd.name; p.num = pd.num; p.ovr = pd.ovr;
+  p.ovrM = ovrMul(pd.ovr);
+  p.limbs.setNum && p.limbs.setNum(pd.num);
+}
+function applySquad() {                    // старт NEON из SAVE.squad + звезда = максимальный ovr
+  const t = teams[0];
+  t.players.forEach((p, i) => { setPData(p, pdataById(SAVE.squad.start[i]) || ROSTER[i]); p.injured = false; });
+  let best = null;
+  for (const p of t.players) { if (p.isGK) continue; if (!best || p.ovr > best.ovr) best = p; }
+  for (const p of t.players) p.isStar = p === best;
+}
+const ovrCls = o => o >= 85 ? 'o3' : o >= 75 ? 'o2' : 'o1';
+const rateCol = r => r >= 7.5 ? '#b8f335' : r >= 6 ? '#dbe5f5' : '#ff6a4d';
+
+function renderLineup() {
+  document.getElementById('subsleft').textContent = subsLeft;
+  document.getElementById('lineuptitle').textContent = lineupMode==='pre' ? 'СОСТАВ НА МАТЧ' : 'ЗАМЕНЫ';
+  document.getElementById('lineupgo').textContent = lineupMode==='pre' ? '▶ НАЧАТЬ МАТЧ' : 'ПРОДОЛЖИТЬ';
+  const rowHtml = (pd, key, extra) =>
+    `<div class="lurow${lineupSel===key?' sel':''}" data-lu="${key}">
+      <b class="lunum">${pd.num}</b><span class="luname">${pd.name}</span>
+      <i class="lupos">${pd.pos}</i>${extra||''}
+      <b class="luovr ${ovrCls(pd.ovr)}">${pd.ovr}</b></div>`;
+  if (lineupMode === 'pre') {
+    luStartEl.innerHTML = SAVE.squad.start.map((id, i) => rowHtml(pdataById(id), 's'+i)).join('');
+    luBenchEl.innerHTML = SAVE.squad.bench.map((id, i) => rowHtml(pdataById(id), 'b'+i)).join('');
+  } else {
+    luStartEl.innerHTML = teams[0].players.map((p, i) => rowHtml(p.pdata || ROSTER[i], 's'+i,
+      `${p.injured?'<span class="luinj">🚑</span>':''}<b class="lurate" style="color:${rateCol(p.rating)}">${Math.min(10,Math.max(5,p.rating)).toFixed(1)}</b>`)).join('');
+    const benchIds = SAVE.squad.bench.filter(id => !usedBench.has(id));
+    luBenchEl.innerHTML = benchIds.length
+      ? benchIds.map(id => rowHtml(pdataById(id), 'bid:'+id)).join('')
+      : '<div class="coachrow">скамейка пуста</div>';
+  }
+  luStartEl.querySelectorAll('[data-lu]').forEach(el => el.onclick = () => { lineupSel = el.dataset.lu; renderLineup(); });
+  luBenchEl.querySelectorAll('[data-lu]').forEach(el => el.onclick = () => luBenchTap(el.dataset.lu));
+}
+function luBenchTap(key) {
+  if (lineupSel == null || !lineupSel.startsWith('s')) { toast('Сначала выбери игрока в старте'); return; }
+  const slot = +lineupSel.slice(1);
+  if (lineupMode === 'pre') {
+    const bi = +key.slice(1);
+    const sid = SAVE.squad.start[slot], bid = SAVE.squad.bench[bi];
+    const sp = pdataById(sid), bp = pdataById(bid);
+    if ((slot === 0) !== (bp.pos === 'GK')) { toast(slot===0 ? 'В ворота — только вратарь' : 'Вратарь играет только в воротах'); sDeny(); return; }
+    SAVE.squad.start[slot] = bid; SAVE.squad.bench[bi] = sid;
+    persist(); sEquip(); lineupSel = null; renderLineup();
+  } else {
+    if (subsLeft <= 0) { toast('Замены закончились'); sDeny(); return; }
+    const bid = key.slice(4), bp = pdataById(bid);
+    const p = teams[0].players[slot];
+    if (p.isGK !== (bp.pos === 'GK')) { toast(p.isGK ? 'В ворота — только вратарь' : 'Вратарь играет только в воротах'); sDeny(); return; }
+    makeSub(p, bp);
+    lineupSel = null; renderLineup();
+  }
+}
+function makeSub(p, pd) {                 // живая замена: игрок на поле получает данные запасного
+  const old = p.name;
+  usedBench.add(pd.id);
+  setPData(p, pd);
+  p.injured = false; p.rating = 6.5; p.stunT = 0;
+  applyTactic(teams[0], teams[0].tacticId);   // пересчёт скоростей
+  subsLeft--;
+  document.getElementById('subsleft2').textContent = subsLeft;
+  showMsg('ЗАМЕНА', `${old} → ${pd.name}`);
+  commSay('sub', null, 2);
+  sWhistle(1);
+}
+function autoSub(p) {                     // травма: тренер сразу меняет, если есть кем
+  if (subsLeft <= 0) return false;
+  const cands = SAVE.squad.bench.filter(id => !usedBench.has(id))
+    .map(pdataById).filter(pd => (pd.pos === 'GK') === p.isGK);
+  if (!cands.length) return false;
+  cands.sort((a,b) => b.ovr - a.ovr);
+  makeSub(p, cands[0]);
+  return true;
+}
+function showLineup(mode, onGo) {
+  lineupMode = mode; lineupSel = null; pendingKick = onGo || null;
+  document.getElementById('lineupscreen').style.display = 'flex';
+  renderLineup();
+}
+document.getElementById('lineupgo').addEventListener('click', () => {
+  document.getElementById('lineupscreen').style.display = 'none';
+  if (lineupMode === 'pre' && pendingKick) { const f = pendingKick; pendingKick = null; f(); }
+});
+document.getElementById('lineupback').addEventListener('click', () => {
+  document.getElementById('lineupscreen').style.display = 'none';
+  pendingKick = null;
+});
+document.getElementById('subsbtn').addEventListener('click', () => showLineup('mid'));
+
 function startMatch() {
   matchCtx = { maxDeficit: 0, soWin: null, soScore: null };
   SO = null; RP.buf.length = 0; rpEnd();
   soboardEl.style.display = 'none';
   teams[1].human = matchMode === 'online';
+  subsLeft = 3; usedBench = new Set();
+  document.getElementById('subsleft2').textContent = subsLeft;
+  applySquad();
+  for (const p of allPlayers) { p.rating = 6.5; p.injured = false; }
   applyTactic(teams[0], menuTacticId);
   applyTactic(teams[1], matchMode === 'online' ? 'balance' : oppTacticId);
   applyCosmetics();
@@ -2291,6 +2627,7 @@ function startMatch() {
   teams[0].dir = +1; teams[1].dir = -1;
   half = 1; matchT = 0;
   stats.poss[0]=0; stats.poss[1]=0; stats.shots[0]=0; stats.shots[1]=0;
+  stats.onT[0]=0; stats.onT[1]=0; stats.fouls[0]=0; stats.fouls[1]=0; stats.offs[0]=0; stats.offs[1]=0;
   resetOfficiating();
   updateHUD();
   document.getElementById('startscreen').style.display='none';
@@ -2300,6 +2637,7 @@ function startMatch() {
   document.body.classList.add('playing');
   initAudio(); if (AC && AC.state==='suspended') AC.resume();
   crowdLevel(0.10, 1.5);
+  musicDuck(true);
   sWhistle(1);
   setBtnMode('atk');
   kickoff(0);
@@ -2363,6 +2701,20 @@ function endMatch() {
   document.getElementById('st-poss1').textContent = (100-p0)+'%';
   document.getElementById('st-shots0').textContent = stats.shots[0];
   document.getElementById('st-shots1').textContent = stats.shots[1];
+  document.getElementById('st-ont0').textContent = stats.onT[0];
+  document.getElementById('st-ont1').textContent = stats.onT[1];
+  document.getElementById('st-fouls0').textContent = stats.fouls[0];
+  document.getElementById('st-fouls1').textContent = stats.fouls[1];
+  document.getElementById('st-offs0').textContent = stats.offs[0];
+  document.getElementById('st-offs1').textContent = stats.offs[1];
+  document.getElementById('st-cards0').textContent = `${teams[0].cards?.y||0}🟨 ${teams[0].cards?.r||0}🟥`;
+  document.getElementById('st-cards1').textContent = `${teams[1].cards?.y||0}🟨 ${teams[1].cards?.r||0}🟥`;
+  // оценки игроков НЕОНА (5.0–10.0), лучший — с золотой рамкой
+  const rated = teams[0].players.map(p => ({ p, r: Math.min(10, Math.max(5, p.rating)) }));
+  const bestR = Math.max(...rated.map(x => x.r));
+  document.getElementById('ratinggrid').innerHTML = rated.map(({p, r}) =>
+    `<div class="rg${r===bestR?' best':''}"><span>${p.num}</span> ${p.name || 'ИГРОК'}${p.injured?' 🚑':''}
+     <b style="color:${r>=7.5?'#b8f335':r>=6?'#dbe5f5':'#ff6a4d'}">${r.toFixed(1)}</b></div>`).join('');
   if (NET.mode === 'host') netSend({ t:'end', s0, s1, p0, sh0: stats.shots[0], sh1: stats.shots[1] });
   setTimeout(()=>{ document.getElementById('endscreen').style.display='flex'; crowdLevel(0.06,2); }, 900);
 }
@@ -2396,20 +2748,30 @@ function updateHUD() {
 }
 
 /* menu buttons */
-for (const row of ['diffrow','lenrow','tacrow']) {
+for (const row of ['diffrow','lenrow','tacrow','opprow']) {
   document.getElementById(row).addEventListener('click', e => {
     const b = e.target.closest('.opt'); if (!b) return;
     for (const o of e.currentTarget.children) o.classList.remove('sel');
     b.classList.add('sel');
     if (row==='diffrow') { menuDiffIdx = +b.dataset.d; DIFF = DIFFS[menuDiffIdx]; }
     else if (row==='tacrow') { menuTacticId = b.dataset.t; }
+    else if (row==='opprow') { menuOppId = b.dataset.o; }
     else HALF_LEN = +b.dataset.l;
   });
 }
+const OPPS = {
+  magma: { name:'МАГМА', col:0xff4a26, shorts:0x2c0b06, tac:null },
+  storm: { name:'ШТОРМ', col:0x3b82f6, shorts:0x0a1a3a, tac:'defense' },
+  volt:  { name:'ВОЛЬТ', col:0xffd21a, shorts:0x3a2a05, tac:'attack' },
+};
+let menuOppId = 'magma';
 document.getElementById('playbtn').addEventListener('click', () => {
-  matchMode = 'friendly'; DIFF = DIFFS[menuDiffIdx];
-  oppTacticId = ['defense','balance','attack'][menuDiffIdx] || 'balance';
-  setOpponent(MAGMA_CFG); startMatch();
+  showLineup('pre', () => {
+    matchMode = 'friendly'; DIFF = DIFFS[menuDiffIdx];
+    const opp = OPPS[menuOppId] || OPPS.magma;
+    oppTacticId = opp.tac || (['defense','balance','attack'][menuDiffIdx] || 'balance');
+    setOpponent(opp); startMatch();
+  });
 });
 document.getElementById('rematchbtn').addEventListener('click', () => {
   if (NET.mode === 'guest') { showMsg('РЕВАНШ', 'ждём, пока хост начнёт'); return; }
@@ -2423,6 +2785,7 @@ document.getElementById('restartbtn').addEventListener('click', () => {
 document.getElementById('menubtn').addEventListener('click', () => {
   if (NET.mode !== 'off') { netSend({t:'bye'}); netCleanup(); }
   try { speechSynthesis.cancel(); } catch(e) {}
+  musicDuck(false);
   state='MENU'; document.getElementById('endscreen').style.display='none';
   document.getElementById('startscreen').style.display='flex';
   hud.style.display='none'; radarEl.style.display='none';
@@ -2432,6 +2795,7 @@ document.getElementById('resumebtn').addEventListener('click', togglePause);
 document.getElementById('quitbtn').addEventListener('click', () => {
   if (NET.mode !== 'off') { netSend({t:'bye'}); netCleanup(); }
   try { speechSynthesis.cancel(); } catch(e) {}
+  musicDuck(false);
   document.getElementById('pausescreen').style.display='none';
   document.body.classList.remove('playing');
   state='MENU';
@@ -2465,6 +2829,7 @@ function executePass(p, mate) {
   d.y = Math.min(2.2, dist*0.05);
   doKick(p, d);
   ball.receiver = mate;   // the target runs to meet the pass
+  ball.assist = { p, t: perfNow };          // кандидат на ассист
   checkOffsideOnPass(p, mate);
 }
 function executeLob(p, tx, tz) {
@@ -2486,7 +2851,10 @@ function executeShot(p, power, aimInp) {
   let acc = distGoal < 12 ? 0.98 : distGoal < 20 ? 0.90 : distGoal < 32 ? 0.78 : 0.60;
   if (power > 0.9) acc -= 0.12;             // overcharged shots are wilder
   if (p.isStar) acc = Math.min(0.99, acc + 0.08);
+  acc = Math.min(0.99, acc + ((p.ovr || 72) - 72) * 0.004);   // класс игрока = точность
   const onTarget = Math.random() < acc;
+  if (onTarget) stats.onT[p.team]++;
+  p.rating += onTarget ? 0.25 : 0.05;
   if (onTarget && distGoal < 22 && state==='PLAY') commSay('chance', null, 13);
   const side = ball.pos.z > 0 ? -1 : 1;
   let targetZ = side * (F.GW*0.7);
@@ -2840,6 +3208,7 @@ function stealBall(thief, victim) {
   victim.stunT = 0.55;
   victim.loseT = 0.7;
   thief.decideCd = 0.4 + Math.random()*0.3;
+  thief.rating += 0.3;
   if (thief.team === 0) commSay('tackle', null, 15);
   buzz(25);
 }
@@ -2971,6 +3340,18 @@ function commitFoul(offender, victim, hard) {
   sWhistle(1); buzz(45);
   ball.owner = null; ball.vel.set(0,0,0);
   offender.stunT = 0.8; offender.lungeT = 0; offender.sliding = false; offender.slideHit = true;
+  offender.rating -= 0.4;
+  stats.fouls[offender.team]++;
+  // травма: ~20% жёстких стыков заканчиваются повреждением
+  if (Math.random() < 0.2 && !victim.injured) {
+    victim.injured = true;
+    victim.baseSpd *= 0.62;
+    victim.rating -= 0.4;
+    commSay('injury', null, 3);
+    if (victim.team === 0) {
+      if (!autoSub(victim)) toast(`🚑 ${victim.name || 'Игрок'} травмирован — хромает до конца матча`);
+    }
+  }
 
   // card severity
   let card = '';
@@ -2996,8 +3377,8 @@ function commitFoul(offender, victim, hard) {
            isRed?'🟥 КРАСНАЯ! ШТРАФНОЙ' : card==='yellow'?'🟨 ЖЁЛТАЯ! ШТРАФНОЙ' : 'ФОЛ · ШТРАФНОЙ');
   };
   const finalize = () => {
-    if (card === 'yellow') { t.cards.y++; showCard('yellow'); }
-    if (isRed) { t.cards.r++; showCard('red'); sendOff(offender); }
+    if (card === 'yellow') { t.cards.y++; showCard('yellow'); offender.rating -= 0.4; }
+    if (isRed) { t.cards.r++; showCard('red'); sendOff(offender); offender.rating -= 1.2; }
     updateCardTally();
     commSay(isRed ? 'red' : card==='yellow' ? 'yellow' : isPen ? 'penalty' : 'foul', null, 3);
     if (offender.team === 1 || card) sBoo();   // crowd jeers a foul on NEON and any booking
@@ -3053,6 +3434,8 @@ function raiseOffsideFlag(spot) {
 function callOffside() {
   const po = pendingOffside; pendingOffside = null;
   if (!po) return;
+  stats.offs[po.team]++;
+  if (po.receiver) po.receiver.rating -= 0.2;
   sWhistle(2); buzz(40);
   raiseOffsideFlag(po.spot);
   commSay('offside', null, 4);
@@ -3205,6 +3588,7 @@ function pkResolve() {
     awardGoal(atk);
   } else if (k.decided === 'save') {
     showMsg('СЭЙВ!', 'вратарь тащит'); sPost(); crowdPulse = 1;
+    k.gk.rating += 0.8;
     sOoh(); commSay('save', null, 4);
     ball.lastTouchTeam = 1 - k.atkTeamId;
     ball.vel.set(-k.dir*(6+Math.random()*4), 3.2, (Math.random()-0.5)*7);
@@ -3428,7 +3812,9 @@ function doHeader(p) {
   if (distGoal < 24) {
     // header on goal
     stats.shots[p.team]++;
+    p.rating += 0.2;
     const onT = Math.random() < (p.isStar ? 0.70 : 0.55);
+    if (onT) stats.onT[p.team]++;
     const tz = onT ? (Math.random()*2-1)*(F.GW-0.4)
                    : (Math.sign(Math.random()-0.5)||1)*(F.GW + 0.6 + Math.random()*1.5);
     const d = V1.set(gx - ball.pos.x, 0, tz - ball.pos.z);
@@ -3598,7 +3984,7 @@ function updateBall(dt) {
     // hard shot: save chance drops with shot speed — identical odds for both keepers
     // save chance grows with reaction time: point-blank ≈ unstoppable, long range ≈ safe hands
     const flightT = perfNow - ball.kickT;
-    const pSave = THREE.MathUtils.clamp(flightT*0.75 - 0.05, 0.12, 0.85);
+    const pSave = THREE.MathUtils.clamp(flightT*0.75 - 0.05 + ((taker.ovr||72)-72)*0.005, 0.12, 0.9);
     if (Math.random() > pSave) {
       taker.loseT = 0.35;  // beaten — ball flies past
       taker = null;
@@ -3614,6 +4000,7 @@ function updateBall(dt) {
       ball.vel.set(infield*(7+Math.random()*4), 4.5, sideSign*(8+Math.random()*5));
       ball.pos.y = Math.max(ball.pos.y, BALL_R+0.1);
       taker.kickAnim = 0.28;
+      taker.rating += 0.5;
       showMsg('СЭЙВ!');
       commSay('save', null, 8); sOoh();
       sKick(16); buzz(20);
@@ -3663,6 +4050,13 @@ function awardGoal(scoringTeam) {
   state = 'GOAL'; stateT = 2.8;
   showMsg('ГОЛ!', scoringTeam.id===0 ? 'НЕОН забивает!' : `${teams[1].name} забивает!`);
   const scorer = ball.lastKicker;
+  if (scorer && scorer.team === scoringTeam.id) scorer.rating += 1.4;
+  const as = ball.assist;
+  if (as && scorer && as.p !== scorer && as.p.team === scoringTeam.id && perfNow - as.t < 9) as.p.rating += 0.9;
+  ball.assist = null;
+  const cGK = teams[1-scoringTeam.id].players[0];
+  if (cGK && cGK.isGK) cGK.rating -= 0.35;
+  for (const p of teams[1-scoringTeam.id].players) if (p.role==='DF') p.rating -= 0.15;
   if (scorer && scorer.isStar && scorer.team === scoringTeam.id)
     commSay('starGoal', `${teams[0].score}:${teams[1].score}`, 1);
   else commSay(scoringTeam.id===0 ? 'goal0' : 'goal1', `${teams[0].score}:${teams[1].score}`, 1);
