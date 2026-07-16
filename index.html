@@ -129,6 +129,9 @@
   .vsx{ font-size:15px; font-weight:800; font-style:italic; color:var(--lime); letter-spacing:.1em; }
   .optlabel{ font-size:12px; letter-spacing:.3em; color:#8fa0bc; margin:18px 0 8px; font-weight:600; }
   .optrow{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .optrow.scrollrow{ flex-wrap:nowrap; overflow-x:auto; justify-content:flex-start; padding:2px 4px 8px;
+    scrollbar-width:thin; -webkit-overflow-scrolling:touch; }
+  .scrollrow .opt{ flex:none; white-space:nowrap; padding:9px 15px; font-size:13.5px; }
   .opt{ padding:11px 22px; border-radius:12px; border:none; background:linear-gradient(180deg,#243050,#182238);
     color:#dbe5f5; font-size:15px; font-weight:700; letter-spacing:.08em; cursor:pointer;
     transition:transform .1s, box-shadow .1s, background .15s, color .15s;
@@ -205,6 +208,16 @@
   .lup.sel b{ background:linear-gradient(180deg,#dcff70,#aee62e); outline:2px solid #b8f335; }
   .lup .lovr{ position:absolute; top:-6px; right:2px; font-size:9px; font-weight:800; color:#ffd21a;
     background:rgba(10,16,28,.85); padding:1px 4px; border-radius:6px; }
+  /* ===== league table ===== */
+  #leaguetable{ display:flex; flex-direction:column; gap:3px; margin-top:8px; }
+  .ltrow{ display:grid; grid-template-columns:24px 1fr 26px 26px 26px 52px 34px; align-items:center;
+    gap:4px; padding:6px 10px; border-radius:9px; background:linear-gradient(180deg,#1b2440,#141c30);
+    font-size:12.5px; font-weight:700; text-align:center; }
+  .ltrow .ltname{ text-align:left; letter-spacing:.04em; display:flex; align-items:center; gap:7px; }
+  .ltrow .ltdot{ width:9px; height:9px; border-radius:50%; flex:none; }
+  .ltrow.me{ outline:1.5px solid var(--lime); background:linear-gradient(180deg,#26324f,#1a2338); }
+  .ltrow.hdr{ background:none; color:#8fa0bc; font-size:10px; letter-spacing:.12em; padding:2px 10px; }
+  .ltrow .ltpts{ font-weight:800; color:#ffd21a; }
   #playbtn{ margin-top:26px; width:min(340px,100%); padding:18px 20px; font-size:23px; font-weight:800; font-style:italic;
     letter-spacing:.22em; color:#122202; background:linear-gradient(180deg,#e6ff8d 0%,#c3f23e 45%,#96d51c 100%);
     border:none; border-radius:18px; cursor:pointer; position:relative; overflow:hidden;
@@ -516,7 +529,7 @@
 <div class="screen" id="startscreen" data-screen-label="Главное меню">
   <div class="menucard">
     <h1><span>НЕОН</span>-ЛИГА</h1>
-    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V4.4</div>
+    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V4.5</div>
     <div id="playerbar">
       <span id="pb-level">УРОВЕНЬ <b>1</b></span>
       <span id="pb-coins">🪙 <b>0</b></span>
@@ -534,10 +547,16 @@
       <div class="opt" data-d="2">СЛОЖНАЯ</div>
     </div>
     <div class="optlabel">СОПЕРНИК</div>
-    <div class="optrow" id="opprow">
+    <div class="optrow scrollrow" id="opprow">
       <div class="opt sel" data-o="magma">МАГМА</div>
-      <div class="opt" data-o="storm">ШТОРМ</div>
-      <div class="opt" data-o="volt">ВОЛЬТ</div>
+      <div class="opt" data-o="real">РЕАЛ</div>
+      <div class="opt" data-o="barca">БАРСЕЛОНА</div>
+      <div class="opt" data-o="bayern">БАВАРИЯ</div>
+      <div class="opt" data-o="city">МАН СИТИ</div>
+      <div class="opt" data-o="liver">ЛИВЕРПУЛЬ</div>
+      <div class="opt" data-o="psg">ПСЖ</div>
+      <div class="opt" data-o="juve">ЮВЕНТУС</div>
+      <div class="opt" data-o="milan">МИЛАН</div>
     </div>
     <div class="optlabel">ТАКТИКА</div>
     <div class="optrow" id="tacrow">
@@ -554,7 +573,8 @@
     <button id="playbtn">ИГРАТЬ</button>
     <div class="btnrow" style="margin-top:14px">
       <button class="mbtn small" id="onlinebtn">🌐 ОНЛАЙН 1×1</button>
-      <button class="mbtn small" id="cupbtn">🏆 КУБОК</button>
+      <button class="mbtn small" id="leaguebtn">⚽ ЛИГА</button>
+      <button class="mbtn small" id="cupbtn">🏆 ЛЧ</button>
       <button class="mbtn small" id="profilebtn">ПРОФИЛЬ</button>
       <button class="mbtn small" id="shopbtn">МАГАЗИН</button>
       <button class="mbtn small" id="settingsbtn">НАСТРОЙКИ</button>
@@ -645,12 +665,25 @@
   </div>
 </div>
 
-<div class="screen" id="cupscreen" style="display:none" data-screen-label="Кубок">
+<div class="screen" id="cupscreen" style="display:none" data-screen-label="Лига Чемпионов">
   <div class="menucard">
-    <div class="endtitle">🏆 КУБОК НЕОНА</div>
+    <div class="endtitle">🏆 ЛИГА ЧЕМПИОНОВ</div>
     <div id="cupbody"></div>
     <div class="btnrow backrow">
       <button class="mbtn primary" id="cupplay">ИГРАТЬ РАУНД</button>
+      <button class="mbtn" data-back>НАЗАД</button>
+    </div>
+  </div>
+</div>
+
+<div class="screen" id="leaguescreen" style="display:none" data-screen-label="Лига (сезон)">
+  <div class="menucard lineupcard">
+    <div class="endtitle">⚽ ЧЕМПИОНАТ · СЕЗОН</div>
+    <div class="coachrow" id="leagueinfo"></div>
+    <div id="leaguetable"></div>
+    <div class="btnrow backrow">
+      <button class="mbtn primary" id="leagueplay">ИГРАТЬ ТУР</button>
+      <button class="mbtn" id="leaguereset">НОВЫЙ СЕЗОН</button>
       <button class="mbtn" data-back>НАЗАД</button>
     </div>
   </div>
@@ -1710,7 +1743,7 @@ const DEFAULT_SAVE = {
   ach:{}, owned:{ kit_cyan:1, ball_classic:1, trail_cyan:1, arena_night:1 },
   eq:{ kit:'kit_cyan', ball:'ball_classic', trail:'trail_cyan', arena:'arena_night' },
   set:{ sound:true, vibro:true, voice:true, music:true },
-  squad:null, customPlayers:[],
+  squad:null, customPlayers:[], league:null,
   cup:{ round:0, done:false },
   best:[],
 };
@@ -1885,11 +1918,24 @@ function checkAchievements(s0, s1, win, draw) {
 }
 
 /* --- cup --- */
+/* ---- настоящие клубы: цвета, стиль игры, сила (pow 1–3) ---- */
+const CLUBS = [
+  { id:'milan', name:'МИЛАН',      col:0xfb090b, shorts:0x101014, tac:'balance', pow:1 },
+  { id:'juve',  name:'ЮВЕНТУС',    col:0xe8e8e8, shorts:0x101014, tac:'defense', pow:1 },
+  { id:'psg',   name:'ПСЖ',        col:0x004170, shorts:0x8f1a2a, tac:'attack',  pow:2 },
+  { id:'liver', name:'ЛИВЕРПУЛЬ',  col:0xc8102e, shorts:0x2c0b06, tac:'attack',  pow:2 },
+  { id:'city',  name:'МАН СИТИ',   col:0x6cabdd, shorts:0x1a2a4a, tac:'balance', pow:2 },
+  { id:'bayern',name:'БАВАРИЯ',    col:0xdc052d, shorts:0x0a1a3a, tac:'attack',  pow:3 },
+  { id:'barca', name:'БАРСЕЛОНА',  col:0xa50044, shorts:0x004d98, tac:'attack',  pow:3 },
+  { id:'real',  name:'РЕАЛ',       col:0xf8f8ff, shorts:0x2a2a3a, tac:'balance', pow:3 },
+];
+const powDiff = pow => pow >= 3 ? CUP_FINAL_DIFF : DIFFS[pow];   // сила клуба → уровень ИИ
+// Лига Чемпионов: путь по грандам
 const CUP_ROUNDS = [
-  { name:'ШТОРМ',   col:0xffd21a, shorts:0x3a2f05, d:0 },
-  { name:'ТИТАН',   col:0x3b82f6, shorts:0x0a1b3a, d:1 },
-  { name:'ВУЛКАН',  col:0x9f4dff, shorts:0x22093a, d:2 },
-  { name:'ЗЕНИТ-X', col:0xf3f6ff, shorts:0x1a1d26, d:3 },
+  { name:'ЮВЕНТУС',   col:0xe8e8e8, shorts:0x101014, d:0 },
+  { name:'МАН СИТИ',  col:0x6cabdd, shorts:0x1a2a4a, d:1 },
+  { name:'БАВАРИЯ',   col:0xdc052d, shorts:0x0a1a3a, d:2 },
+  { name:'РЕАЛ',      col:0xf8f8ff, shorts:0x2a2a3a, d:3 },
 ];
 const CUP_FINAL_DIFF = { cpuSpd:8.2, press:3, passErr:0.05, shotErr:0.06, aggro:0.6 };
 const MAGMA_CFG = { name:'МАГМА', col:0xff4a26, shorts:0x2c0b06 };
@@ -1918,7 +1964,7 @@ function setOpponent(cfg) {
 }
 
 /* --- menu screens --- */
-const SCREEN_IDS = ['profilescreen','shopscreen','cupscreen','settingsscreen','onlinescreen'];
+const SCREEN_IDS = ['profilescreen','shopscreen','cupscreen','settingsscreen','onlinescreen','leaguescreen'];
 function refreshPlayerbar() {
   document.getElementById('pb-level').innerHTML = `УРОВЕНЬ <b>${levelOf(SAVE.xp)}</b>`;
   document.getElementById('pb-coins').innerHTML = `🪙 <b>${SAVE.coins}</b>`;
@@ -1931,6 +1977,7 @@ function showScreen(id) {
   if (id === 'shopscreen') renderShop();
   if (id === 'cupscreen') renderCup();
   if (id === 'settingsscreen') renderSettings();
+  if (id === 'leaguescreen') renderLeague();
 }
 document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => {
   for (const s of SCREEN_IDS) document.getElementById(s).style.display = 'none';
@@ -1940,6 +1987,7 @@ document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click'
 document.getElementById('profilebtn').addEventListener('click', () => showScreen('profilescreen'));
 document.getElementById('shopbtn').addEventListener('click', () => showScreen('shopscreen'));
 document.getElementById('cupbtn').addEventListener('click', () => showScreen('cupscreen'));
+document.getElementById('leaguebtn').addEventListener('click', () => showScreen('leaguescreen'));
 document.getElementById('settingsbtn').addEventListener('click', () => showScreen('settingsscreen'));
 
 function renderProfile() {
@@ -2137,6 +2185,91 @@ function genThumbs() {
   }
   r2.dispose();
 }
+/* ================= ЛИГА: сезон 8 команд, круговая таблица ================= */
+function newSeason() {
+  const t = { neon: { pts:0,w:0,d:0,l:0,gf:0,ga:0 } };
+  for (const c of CLUBS) t[c.id] = { pts:0,w:0,d:0,l:0,gf:0,ga:0 };
+  SAVE.league = { day: 0, table: t, done: false };
+  persist();
+}
+function recResult(t, idA, idB, gA, gB) {
+  const a = t[idA], b = t[idB];
+  a.gf += gA; a.ga += gB; b.gf += gB; b.ga += gA;
+  if (gA > gB) { a.w++; b.l++; a.pts += 3; }
+  else if (gA < gB) { b.w++; a.l++; b.pts += 3; }
+  else { a.d++; b.d++; a.pts++; b.pts++; }
+}
+function simCpuScore(powA, powB) {
+  const g = d => Math.max(0, Math.min(5, Math.round(Math.random()*2.2 + d*0.6 - 0.4)));
+  return [g(powA - powB), g(powB - powA)];
+}
+function leagueStandings() {
+  const t = SAVE.league.table;
+  const rows = Object.keys(t).map(id => ({
+    id, name: id === 'neon' ? 'НЕОН' : (CLUBS.find(c => c.id === id) || {}).name || id,
+    col: id === 'neon' ? '#22d3ee' : '#' + ((CLUBS.find(c => c.id === id) || {col:0x888888}).col).toString(16).padStart(6,'0'),
+    ...t[id],
+  }));
+  rows.sort((a,b) => b.pts - a.pts || (b.gf-b.ga) - (a.gf-a.ga) || b.gf - a.gf);
+  return rows;
+}
+function renderLeague() {
+  if (!SAVE.league || !SAVE.league.table) newSeason();
+  const L = SAVE.league;
+  const rows = leagueStandings();
+  const place = rows.findIndex(r => r.id === 'neon') + 1;
+  document.getElementById('leagueinfo').innerHTML = L.done
+    ? `Сезон окончен! Твоё место: <b>${place}</b> из ${rows.length}`
+    : `Тур <b>${L.day + 1}</b> из ${CLUBS.length} · следующий соперник: <b>${CLUBS[L.day].name}</b> · ты на <b>${place}-м</b> месте`;
+  document.getElementById('leagueplay').style.display = L.done ? 'none' : '';
+  document.getElementById('leaguetable').innerHTML =
+    `<div class="ltrow hdr"><span>#</span><span class="ltname">КЛУБ</span><span>В</span><span>Н</span><span>П</span><span>МЯЧИ</span><span>О</span></div>`
+    + rows.map((r, i) =>
+      `<div class="ltrow${r.id==='neon' ? ' me' : ''}">
+        <span>${i+1}</span>
+        <span class="ltname"><i class="ltdot" style="background:${r.col}"></i>${r.name}</span>
+        <span>${r.w}</span><span>${r.d}</span><span>${r.l}</span>
+        <span>${r.gf}:${r.ga}</span><span class="ltpts">${r.pts}</span></div>`).join('');
+}
+function leagueAfterMatch(s0, s1) {
+  const L = SAVE.league; if (!L || L.done) return '';
+  const opp = CLUBS[L.day];
+  recResult(L.table, 'neon', opp.id, s0, s1);
+  // остальные клубы играют между собой (3 пары, один отдыхает)
+  const rest = CLUBS.filter(c => c !== opp);
+  const rot = L.day % rest.length;
+  const list = rest.slice(rot).concat(rest.slice(0, rot));
+  for (let k = 0; k + 1 < list.length; k += 2) {
+    const [ga, gb] = simCpuScore(list[k].pow, list[k+1].pow);
+    recResult(L.table, list[k].id, list[k+1].id, ga, gb);
+  }
+  L.day++;
+  let msg = `Тур ${L.day} сыгран`;
+  if (L.day >= CLUBS.length) {
+    L.done = true;
+    const place = leagueStandings().findIndex(r => r.id === 'neon') + 1;
+    const prize = place === 1 ? 600 : place <= 3 ? 300 : 100;
+    SAVE.coins += prize;
+    msg = place === 1 ? `🏆 ЧЕМПИОН ЛИГИ! +${prize} 🪙` : `Сезон окончен: ${place}-е место, +${prize} 🪙`;
+    if (place === 1) unlockAch('champion');
+  }
+  persist();
+  return msg;
+}
+document.getElementById('leagueplay').addEventListener('click', () => {
+  if (!SAVE.league || SAVE.league.done) return;
+  document.getElementById('leaguescreen').style.display = 'none';
+  showLineup('pre', () => {
+    const opp = CLUBS[SAVE.league.day];
+    matchMode = 'league';
+    DIFF = powDiff(opp.pow);
+    oppTacticId = opp.tac;
+    setOpponent(opp);
+    startMatch();
+  });
+});
+document.getElementById('leaguereset').addEventListener('click', () => { newSeason(); renderLeague(); });
+
 function renderCup() {
   const rows = CUP_ROUNDS.map((r, i) => {
     const status = SAVE.cup.done || i < SAVE.cup.round ? '✅' : (i === SAVE.cup.round ? '▶' : '🔒');
@@ -2815,7 +2948,7 @@ function endMatch() {
     win ? `ПОБЕДА НЕОНА${soTxt}!` : (draw ? 'НИЧЬЯ' : `ПОБЕДА: ${teams[1].name}${soTxt}`);
   commSay(win ? 'ftWin' : draw ? 'ftDraw' : 'ftLoss', null, 1);
   // progression rewards
-  const mult = matchMode==='cup' ? 1.5 : 1;
+  const mult = matchMode==='cup' ? 1.5 : matchMode==='league' ? 1.2 : 1;
   const coins = Math.round((win?50:(draw?20:10))*mult) + s0*5;
   const xp = Math.round((win?100:(draw?40:15))*mult) + s0*20;
   const oldLevel = levelOf(SAVE.xp);
@@ -2831,11 +2964,12 @@ function endMatch() {
   if (matchMode==='cup') {
     if (win) {
       SAVE.cup.round++;
-      if (SAVE.cup.round >= CUP_ROUNDS.length) { SAVE.cup.done = true; cupMsg = '🏆 КУБОК НЕОНА ВАШ!'; unlockAch('champion'); }
+      if (SAVE.cup.round >= CUP_ROUNDS.length) { SAVE.cup.done = true; cupMsg = '🏆 ЛИГА ЧЕМПИОНОВ ВАША!'; unlockAch('champion'); }
       else cupMsg = `Раунд пройден! Дальше: ${CUP_ROUNDS[SAVE.cup.round].name}`;
     } else if (draw) cupMsg = 'Ничья — переигровка раунда';
-    else { SAVE.cup.round = 0; cupMsg = 'Вылет из кубка'; }
+    else { SAVE.cup.round = 0; cupMsg = 'Вылет из Лиги Чемпионов'; }
   }
+  if (matchMode==='league') cupMsg = leagueAfterMatch(s0, s1);
   checkAchievements(s0, s1, win, draw);
   const newLevel = levelOf(SAVE.xp);
   if (newLevel > oldLevel) toast(`🌟 Новый уровень: ${newLevel}!`);
@@ -2908,11 +3042,8 @@ for (const row of ['diffrow','lenrow','tacrow','opprow']) {
     else HALF_LEN = +b.dataset.l;
   });
 }
-const OPPS = {
-  magma: { name:'МАГМА', col:0xff4a26, shorts:0x2c0b06, tac:null },
-  storm: { name:'ШТОРМ', col:0x3b82f6, shorts:0x0a1a3a, tac:'defense' },
-  volt:  { name:'ВОЛЬТ', col:0xffd21a, shorts:0x3a2a05, tac:'attack' },
-};
+const OPPS = { magma: { name:'МАГМА', col:0xff4a26, shorts:0x2c0b06, tac:null } };
+for (const c of CLUBS) OPPS[c.id] = { name:c.name, col:c.col, shorts:c.shorts, tac:c.tac };
 let menuOppId = 'magma';
 document.getElementById('playbtn').addEventListener('click', () => {
   showLineup('pre', () => {
@@ -2925,6 +3056,7 @@ document.getElementById('playbtn').addEventListener('click', () => {
 document.getElementById('rematchbtn').addEventListener('click', () => {
   if (NET.mode === 'guest') { showMsg('РЕВАНШ', 'ждём, пока хост начнёт'); return; }
   if (NET.mode === 'host') { hostStartOnline(); return; }
+  if (matchMode === 'league') matchMode = 'friendly';   // реванш вне зачёта таблицы
   startMatch();
 });
 document.getElementById('restartbtn').addEventListener('click', () => {
