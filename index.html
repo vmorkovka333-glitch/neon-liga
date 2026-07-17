@@ -208,6 +208,35 @@
   .lup.sel b{ background:linear-gradient(180deg,#dcff70,#aee62e); outline:2px solid #b8f335; }
   .lup .lovr{ position:absolute; top:-6px; right:2px; font-size:9px; font-weight:800; color:#ffd21a;
     background:rgba(10,16,28,.85); padding:1px 4px; border-radius:6px; }
+  /* ===== club picker ===== */
+  #clubmodal{ position:fixed; inset:0; z-index:70; display:none; flex-direction:column; align-items:center;
+    justify-content:center; gap:14px; background:rgba(4,8,16,.94); padding:20px; }
+  #clubmodal.show{ display:flex; }
+  #clubmodal .ptitle{ font-size:22px; font-weight:800; font-style:italic; color:#eaf1ff; }
+  .clubwrap{ width:min(560px,94vw); max-height:74vh; overflow-y:auto; display:flex; flex-direction:column; gap:10px; }
+  .clubsec h4{ font-size:11px; letter-spacing:.3em; color:#8fa0bc; margin:6px 0 6px 2px; }
+  .clubgrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:7px; }
+  .clubbtn{ display:flex; align-items:center; gap:8px; padding:9px 11px; border-radius:11px; cursor:pointer;
+    background:linear-gradient(180deg,#1b2440,#141c30); border:1px solid transparent;
+    font-size:12.5px; font-weight:800; letter-spacing:.04em; color:#eaf1ff; transition:border-color .12s; }
+  .clubbtn:hover{ border-color:var(--lime); }
+  .clubbtn .cdot{ width:14px; height:14px; border-radius:4px; flex:none; border:1.5px solid rgba(255,255,255,.5); }
+  .clubbtn .cpow{ margin-left:auto; font-size:10px; color:#ffd21a; }
+  /* ===== euro cup screen ===== */
+  .eurogroups{ display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:9px; margin-top:8px; }
+  .eg h5{ font-size:10px; letter-spacing:.26em; color:#8fa0bc; margin:0 0 4px 3px; }
+  .eg .egrow{ display:grid; grid-template-columns:1fr 34px 22px; gap:4px; padding:4px 9px; border-radius:8px;
+    background:linear-gradient(180deg,#1b2440,#141c30); font-size:11.5px; font-weight:700; margin-bottom:3px;
+    align-items:center; }
+  .eg .egrow.me{ outline:1.2px solid var(--lime); }
+  .eg .egrow.q{ background:linear-gradient(180deg,#1d3550,#14263a); }
+  .eg .egname{ text-align:left; display:flex; gap:6px; align-items:center; overflow:hidden; white-space:nowrap; }
+  .eg .egname .ltdot{ width:8px; height:8px; }
+  .eurobracket{ display:flex; flex-direction:column; gap:5px; margin-top:8px; }
+  .ebrow{ display:flex; align-items:center; gap:8px; padding:6px 11px; border-radius:9px; font-size:12.5px;
+    font-weight:700; background:linear-gradient(180deg,#1b2440,#141c30); }
+  .ebrow.me{ outline:1.2px solid var(--lime); }
+  .ebrow .ebagg{ margin-left:auto; color:#ffd21a; font-weight:800; }
   /* ===== league table ===== */
   #leaguetable{ display:flex; flex-direction:column; gap:3px; margin-top:8px; }
   .ltrow{ display:grid; grid-template-columns:24px 1fr 26px 26px 26px 52px 34px; align-items:center;
@@ -476,7 +505,7 @@
 
 <div id="hud" style="display:none" data-screen-label="Матч HUD">
   <div id="sb">
-    <span class="tchip" style="--c:var(--cyan)">НЕО</span>
+    <span class="tchip" id="sb-my" style="--c:var(--cyan)">НЕО</span>
     <b id="score">0 : 0</b>
     <span class="tchip" id="sb-opp" style="--c:var(--mag)">МАГ</span>
     <span id="clockbox"><b id="clock">0'</b><i id="half">1Т</i></span>
@@ -508,6 +537,10 @@
   <div class="pcards" id="pcards"></div>
   <button class="mbtn primary" id="packok">ЗАБРАТЬ</button>
 </div>
+<div id="clubmodal">
+  <div class="ptitle">ЗА КАКОЙ КЛУБ ИГРАЕШЬ?</div>
+  <div class="clubwrap" id="clubgrid"></div>
+</div>
 <div id="power-meter"><div id="power-fill"></div></div>
 <div id="pausebtn"><i></i><i></i></div>
 
@@ -529,16 +562,16 @@
 <div class="screen" id="startscreen" data-screen-label="Главное меню">
   <div class="menucard">
     <h1><span>НЕОН</span>-ЛИГА</h1>
-    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V4.5</div>
+    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V5.0</div>
     <div id="playerbar">
       <span id="pb-level">УРОВЕНЬ <b>1</b></span>
       <span id="pb-coins">🪙 <b>0</b></span>
       <span id="pb-rating">⭐ <b>1000</b></span>
     </div>
     <div class="vs">
-      <div class="team" style="--c:var(--cyan)"><i></i>НЕОН</div>
+      <div class="team" id="vs-my" style="--c:var(--cyan)"><i></i>НЕОН</div>
       <div class="vsx">VS</div>
-      <div class="team" style="--c:var(--mag)"><i></i>МАГМА</div>
+      <div class="team" id="vs-opp2" style="--c:var(--mag)"><i></i>МАГМА</div>
     </div>
     <div class="optlabel">СЛОЖНОСТЬ</div>
     <div class="optrow" id="diffrow">
@@ -573,8 +606,8 @@
     <button id="playbtn">ИГРАТЬ</button>
     <div class="btnrow" style="margin-top:14px">
       <button class="mbtn small" id="onlinebtn">🌐 ОНЛАЙН 1×1</button>
-      <button class="mbtn small" id="leaguebtn">⚽ ЛИГА</button>
-      <button class="mbtn small" id="cupbtn">🏆 ЛЧ</button>
+      <button class="mbtn small" id="leaguebtn">⚽ ЧЕМПИОНАТ</button>
+      <button class="mbtn small" id="cupbtn">🏆 ЕВРОКУБКИ</button>
       <button class="mbtn small" id="profilebtn">ПРОФИЛЬ</button>
       <button class="mbtn small" id="shopbtn">МАГАЗИН</button>
       <button class="mbtn small" id="settingsbtn">НАСТРОЙКИ</button>
@@ -665,12 +698,13 @@
   </div>
 </div>
 
-<div class="screen" id="cupscreen" style="display:none" data-screen-label="Лига Чемпионов">
-  <div class="menucard">
-    <div class="endtitle">🏆 ЛИГА ЧЕМПИОНОВ</div>
+<div class="screen" id="cupscreen" style="display:none" data-screen-label="Еврокубок">
+  <div class="menucard lineupcard">
+    <div class="endtitle" id="eurotitle">🏆 ЕВРОКУБОК</div>
+    <div class="coachrow" id="euroinfo"></div>
     <div id="cupbody"></div>
     <div class="btnrow backrow">
-      <button class="mbtn primary" id="cupplay">ИГРАТЬ РАУНД</button>
+      <button class="mbtn primary" id="cupplay">ИГРАТЬ МАТЧ</button>
       <button class="mbtn" data-back>НАЗАД</button>
     </div>
   </div>
@@ -1375,6 +1409,64 @@ const varTV = (() => {
   scene.add(coach.g);
 })();
 
+/* ---- стадион в цветах клуба-хозяина: неон-полосы + сектора болельщиков ---- */
+const CROWD_PALETTE = [0x00e5ff,0xff5a2e,0xffe14d,0xffffff,0x9f7dff,0x4ade80,0xff3da0,0x3b82f6];
+function arenaTheme(clubCol) {
+  const th = ARENAS[SAVE.eq.arena] || ARENAS.arena_night;
+  if (neonRefs[0]) neonRefs[0].color.setHex(clubCol ?? th.na);
+  if (neonRefs[1]) neonRefs[1].color.setHex(clubCol ?? th.nb);
+  if (crowdMesh && crowdMesh.instanceColor) {
+    const col = new THREE.Color();
+    for (let i = 0; i < crowdMesh.count; i++) {
+      const useClub = clubCol != null && Math.random() < 0.45;   // сектора фанатов хозяина
+      col.setHex(useClub ? clubCol : CROWD_PALETTE[(Math.random()*CROWD_PALETTE.length)|0])
+         .multiplyScalar(0.55 + Math.random()*0.45);
+      crowdMesh.setColorAt(i, col);
+    }
+    crowdMesh.instanceColor.needsUpdate = true;
+  }
+}
+
+/* ---- трофей: золотой кубок для церемонии награждения ---- */
+const trophy = (() => {
+  const g = new THREE.Group();
+  const gold = new THREE.MeshLambertMaterial({ color:0xffd21a, emissive:0xffd21a, emissiveIntensity:0.5 });
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.65, 0.35, 16), lamb(0x2a2010));
+  base.position.y = 0.18; g.add(base);
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, 0.9, 12), gold);
+  stem.position.y = 0.8; g.add(stem);
+  const bowl = new THREE.Mesh(new THREE.SphereGeometry(0.62, 18, 14, 0, Math.PI*2, 0, Math.PI/1.8), gold);
+  bowl.rotation.x = Math.PI; bowl.position.y = 1.75; g.add(bowl);
+  for (const sx of [-1, 1]) {
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.06, 10, 18), gold);
+    handle.position.set(sx*0.68, 1.75, 0); g.add(handle);
+  }
+  g.visible = false; g.scale.set(1.6, 1.6, 1.6);
+  scene.add(g);
+  return { g, gold };
+})();
+let trophyT = 0;
+function startTrophy() {
+  const E = SAVE.euro, C = E ? EURO[E.comp] : EURO.ucl;
+  trophy.gold.color.setHex(C.trophyCol); trophy.gold.emissive.setHex(C.trophyCol);
+  trophy.g.position.set(0, 0, 4); trophy.g.visible = true;
+  // команда полукругом у кубка, все празднуют
+  teams[0].players.forEach((p, i) => {
+    if (p.sentOff) return;
+    const a = -Math.PI/2 + (i/10) * Math.PI;
+    p.pos.set(Math.cos(a)*6, 0, 4 + Math.sin(a)*6*0.6 + 3);
+    p.vel.set(0,0,0);
+    p.yaw = Math.atan2(-p.pos.x, 4 - p.pos.z);
+    p.celebT = 7; p.celebStyle = i % 2 ? 0 : 3;
+  });
+  ball.owner = null; ball.pos.set(0, BALL_R, -8); ball.vel.set(0,0,0);
+  state = 'TROPHY'; stateT = 6.5; trophyT = 0;
+  showMsg('🏆 ' + C.name, `${myName()} — ПОБЕДИТЕЛЬ!`);
+  commSay('trophy', null, 1);
+  sCheer(); crowdPulse = 1;
+  spawnFireworks(0, 0);
+}
+
 function offsideLineX(dir) {
   // x of the 2nd-last defender for the team defending the goal at -dir*HL (offside reference)
   const def = teams.find(t => t.dir === -dir) || teams[1];
@@ -1744,6 +1836,7 @@ const DEFAULT_SAVE = {
   eq:{ kit:'kit_cyan', ball:'ball_classic', trail:'trail_cyan', arena:'arena_night' },
   set:{ sound:true, vibro:true, voice:true, music:true },
   squad:null, customPlayers:[], league:null,
+  myClub:null, euroQual:null, euro:null,
   cup:{ round:0, done:false },
   best:[],
 };
@@ -1857,14 +1950,18 @@ const ARENAS = {
 };
 function applyCosmetics() {
   const kit = SHOP.find(i => i.id === SAVE.eq.kit) || SHOP[0];
-  const kc2 = kit.c2 ?? 0x07263a;
+  const mc = myClub();
+  // базовая форма = цвета твоего клуба; купленные формы остаются «выездными»
+  const kc  = (SAVE.eq.kit === 'kit_cyan' && mc) ? mc.col : kit.c;
+  const kc2 = (SAVE.eq.kit === 'kit_cyan' && mc) ? mc.shorts : (kit.c2 ?? 0x07263a);
   for (const p of teams[0].players) {
     if (!p.isGK) {
-      p.shirtMat.color.setHex(kit.c); p.shirtMat.emissive.setHex(kit.c);
-      p.sockMat.color.setHex(kit.c); p.sockMat.emissive.setHex(kit.c);
+      p.shirtMat.color.setHex(kc); p.shirtMat.emissive.setHex(kc);
+      p.sockMat.color.setHex(kc); p.sockMat.emissive.setHex(kc);
     }
     p.shortsMat.color.setHex(kc2); p.shortsMat.emissive.setHex(kc2);
   }
+  teams[0].name = myName();
   const bi = SHOP.find(i => i.id === SAVE.eq.ball) || SHOP.find(i => i.id === 'ball_classic');
   ballMesh.material.color.setHex(bi.c);
   ballMesh.material.emissive.setHex(bi.price ? bi.c : 0xffffff);
@@ -1918,27 +2015,51 @@ function checkAchievements(s0, s1, win, draw) {
 }
 
 /* --- cup --- */
-/* ---- настоящие клубы: цвета, стиль игры, сила (pow 1–3) ---- */
+/* ---- настоящие клубы 4 лиг: цвета, стиль, сила (pow 1–3) ---- */
+const LEAGUES = {
+  bund: 'БУНДЕСЛИГА', liga: 'ЛА ЛИГА', apl: 'АПЛ', seri: 'СЕРИЯ А',
+};
 const CLUBS = [
-  { id:'milan', name:'МИЛАН',      col:0xfb090b, shorts:0x101014, tac:'balance', pow:1 },
-  { id:'juve',  name:'ЮВЕНТУС',    col:0xe8e8e8, shorts:0x101014, tac:'defense', pow:1 },
-  { id:'psg',   name:'ПСЖ',        col:0x004170, shorts:0x8f1a2a, tac:'attack',  pow:2 },
-  { id:'liver', name:'ЛИВЕРПУЛЬ',  col:0xc8102e, shorts:0x2c0b06, tac:'attack',  pow:2 },
-  { id:'city',  name:'МАН СИТИ',   col:0x6cabdd, shorts:0x1a2a4a, tac:'balance', pow:2 },
-  { id:'bayern',name:'БАВАРИЯ',    col:0xdc052d, shorts:0x0a1a3a, tac:'attack',  pow:3 },
-  { id:'barca', name:'БАРСЕЛОНА',  col:0xa50044, shorts:0x004d98, tac:'attack',  pow:3 },
-  { id:'real',  name:'РЕАЛ',       col:0xf8f8ff, shorts:0x2a2a3a, tac:'balance', pow:3 },
+  // Бундеслига
+  { id:'bayern', name:'БАВАРИЯ',    col:0xdc052d, shorts:0x0a1a3a, tac:'attack',  pow:3, lg:'bund' },
+  { id:'dortm',  name:'ДОРТМУНД',   col:0xfde100, shorts:0x101014, tac:'attack',  pow:2, lg:'bund' },
+  { id:'leipz',  name:'ЛЕЙПЦИГ',    col:0xdd1740, shorts:0xf0f3f8, tac:'balance', pow:2, lg:'bund' },
+  { id:'lever',  name:'ЛЕВЕРКУЗЕН', col:0xe32219, shorts:0x101014, tac:'attack',  pow:2, lg:'bund' },
+  { id:'stutt',  name:'ШТУТГАРТ',   col:0xf0f3f8, shorts:0xdd1740, tac:'balance', pow:1, lg:'bund' },
+  { id:'frank',  name:'ФРАНКФУРТ',  col:0x1a1a1a, shorts:0xdd1740, tac:'defense', pow:1, lg:'bund' },
+  // Ла Лига
+  { id:'real',   name:'РЕАЛ',       col:0xf8f8ff, shorts:0x2a2a3a, tac:'balance', pow:3, lg:'liga' },
+  { id:'barca',  name:'БАРСЕЛОНА',  col:0xa50044, shorts:0x004d98, tac:'attack',  pow:3, lg:'liga' },
+  { id:'atlet',  name:'АТЛЕТИКО',   col:0xcb3524, shorts:0x1a2a4a, tac:'defense', pow:2, lg:'liga' },
+  { id:'sevil',  name:'СЕВИЛЬЯ',    col:0xf0f3f8, shorts:0xd8102e, tac:'balance', pow:1, lg:'liga' },
+  { id:'valen',  name:'ВАЛЕНСИЯ',   col:0xffdf1c, shorts:0x101014, tac:'balance', pow:1, lg:'liga' },
+  { id:'betis',  name:'БЕТИС',      col:0x00954c, shorts:0xf0f3f8, tac:'attack',  pow:1, lg:'liga' },
+  // АПЛ
+  { id:'city',   name:'МАН СИТИ',   col:0x6cabdd, shorts:0x1a2a4a, tac:'balance', pow:3, lg:'apl' },
+  { id:'liver',  name:'ЛИВЕРПУЛЬ',  col:0xc8102e, shorts:0x2c0b06, tac:'attack',  pow:3, lg:'apl' },
+  { id:'arsen',  name:'АРСЕНАЛ',    col:0xef0107, shorts:0xf0f3f8, tac:'attack',  pow:2, lg:'apl' },
+  { id:'chels',  name:'ЧЕЛСИ',      col:0x034694, shorts:0x0a1a3a, tac:'balance', pow:2, lg:'apl' },
+  { id:'manu',   name:'МАН ЮНАЙТЕД',col:0xda291c, shorts:0xf0f3f8, tac:'balance', pow:2, lg:'apl' },
+  { id:'totte',  name:'ТОТТЕНХЭМ',  col:0xf0f3f8, shorts:0x132257, tac:'attack',  pow:1, lg:'apl' },
+  // Серия А
+  { id:'inter',  name:'ИНТЕР',      col:0x0068a8, shorts:0x101014, tac:'defense', pow:3, lg:'seri' },
+  { id:'milan',  name:'МИЛАН',      col:0xfb090b, shorts:0x101014, tac:'balance', pow:2, lg:'seri' },
+  { id:'juve',   name:'ЮВЕНТУС',    col:0xe8e8e8, shorts:0x101014, tac:'defense', pow:2, lg:'seri' },
+  { id:'napol',  name:'НАПОЛИ',     col:0x12a0d7, shorts:0xf0f3f8, tac:'attack',  pow:2, lg:'seri' },
+  { id:'roma',   name:'РОМА',       col:0x8e1f2f, shorts:0xf3bc00, tac:'balance', pow:1, lg:'seri' },
+  { id:'atala',  name:'АТАЛАНТА',   col:0x1e71b8, shorts:0x101014, tac:'attack',  pow:1, lg:'seri' },
 ];
-const powDiff = pow => pow >= 3 ? CUP_FINAL_DIFF : DIFFS[pow];   // сила клуба → уровень ИИ
-// Лига Чемпионов: путь по грандам
-const CUP_ROUNDS = [
-  { name:'ЮВЕНТУС',   col:0xe8e8e8, shorts:0x101014, d:0 },
-  { name:'МАН СИТИ',  col:0x6cabdd, shorts:0x1a2a4a, d:1 },
-  { name:'БАВАРИЯ',   col:0xdc052d, shorts:0x0a1a3a, d:2 },
-  { name:'РЕАЛ',      col:0xf8f8ff, shorts:0x2a2a3a, d:3 },
-];
+const clubById = id => CLUBS.find(c => c.id === id);
 const CUP_FINAL_DIFF = { cpuSpd:8.2, press:3, passErr:0.05, shotErr:0.06, aggro:0.6 };
+const powDiff = pow => pow >= 3 ? CUP_FINAL_DIFF : DIFFS[pow];   // сила клуба → уровень ИИ
 const MAGMA_CFG = { name:'МАГМА', col:0xff4a26, shorts:0x2c0b06 };
+const myClub = () => clubById(SAVE.myClub);
+const myName = () => (myClub() || { name:'НЕОН' }).name;
+const EURO = {
+  ucl:  { name:'ЛИГА ЧЕМПИОНОВ',   ico:'🏆', prize:1000, trophyCol:0xe8ecf5 },
+  uel:  { name:'ЛИГА ЕВРОПЫ',      ico:'🥈', prize:600,  trophyCol:0xff9d2e },
+  uecl: { name:'ЛИГА КОНФЕРЕНЦИЙ', ico:'🥉', prize:400,  trophyCol:0x8bf06a },
+};
 let matchMode = 'friendly';
 let matchCtx = { maxDeficit: 0 };
 let menuDiffIdx = 1;
@@ -1975,7 +2096,7 @@ function showScreen(id) {
   for (const s of SCREEN_IDS) document.getElementById(s).style.display = s === id ? 'flex' : 'none';
   if (id === 'profilescreen') renderProfile();
   if (id === 'shopscreen') renderShop();
-  if (id === 'cupscreen') renderCup();
+  if (id === 'cupscreen') renderEuro();
   if (id === 'settingsscreen') renderSettings();
   if (id === 'leaguescreen') renderLeague();
 }
@@ -2185,15 +2306,56 @@ function genThumbs() {
   }
   r2.dispose();
 }
-/* ================= ЛИГА: сезон 8 команд, круговая таблица ================= */
+/* ================= ВЫБОР КЛУБА (онбординг) ================= */
+function applyClub() {
+  const mc = myClub();
+  const nm = myName();
+  const colHex = mc ? '#' + mc.col.toString(16).padStart(6,'0') : '#22d3ee';
+  const vsMy = document.getElementById('vs-my');
+  vsMy.lastChild.textContent = nm; vsMy.style.setProperty('--c', colHex);
+  const chip = document.getElementById('sb-my');
+  chip.textContent = nm.slice(0, 3); chip.style.setProperty('--c', colHex);
+  buildOppRow();
+  applyCosmetics();
+}
+function buildOppRow() {
+  const row = document.getElementById('opprow');
+  const opts = [`<div class="opt sel" data-o="magma">МАГМА</div>`]
+    .concat(CLUBS.filter(c => c.id !== SAVE.myClub).map(c => `<div class="opt" data-o="${c.id}">${c.name}</div>`));
+  row.innerHTML = opts.join('');
+  menuOppId = 'magma';
+}
+function showClubPicker() {
+  const grid = document.getElementById('clubgrid');
+  grid.innerHTML = Object.entries(LEAGUES).map(([lg, lname]) =>
+    `<div class="clubsec"><h4>${lname}</h4><div class="clubgrid">`
+    + CLUBS.filter(c => c.lg === lg).map(c =>
+      `<div class="clubbtn" data-club="${c.id}">
+        <i class="cdot" style="background:#${c.col.toString(16).padStart(6,'0')}"></i>${c.name}
+        <span class="cpow">${'⭐'.repeat(c.pow)}</span></div>`).join('')
+    + `</div></div>`).join('');
+  grid.querySelectorAll('[data-club]').forEach(el => el.onclick = () => {
+    SAVE.myClub = el.dataset.club;
+    SAVE.league = null; SAVE.euro = null; SAVE.euroQual = null;   // новый клуб — новый путь
+    persist();
+    document.getElementById('clubmodal').classList.remove('show');
+    applyClub();
+    toast(`Ты — ${myName()}! Вперёд за трофеями 🏆`);
+  });
+  document.getElementById('clubmodal').classList.add('show');
+}
+
+/* ================= НАЦИОНАЛЬНАЯ ЛИГА (6 команд, 5 туров) ================= */
+const myLeagueClubs = () => CLUBS.filter(c => c.lg === (myClub() || CLUBS[0]).lg && c.id !== SAVE.myClub);
 function newSeason() {
   const t = { neon: { pts:0,w:0,d:0,l:0,gf:0,ga:0 } };
-  for (const c of CLUBS) t[c.id] = { pts:0,w:0,d:0,l:0,gf:0,ga:0 };
+  for (const c of myLeagueClubs()) t[c.id] = { pts:0,w:0,d:0,l:0,gf:0,ga:0 };
   SAVE.league = { day: 0, table: t, done: false };
   persist();
 }
 function recResult(t, idA, idB, gA, gB) {
   const a = t[idA], b = t[idB];
+  if (!a || !b) return;
   a.gf += gA; a.ga += gB; b.gf += gB; b.ga += gA;
   if (gA > gB) { a.w++; b.l++; a.pts += 3; }
   else if (gA < gB) { b.w++; a.l++; b.pts += 3; }
@@ -2203,24 +2365,25 @@ function simCpuScore(powA, powB) {
   const g = d => Math.max(0, Math.min(5, Math.round(Math.random()*2.2 + d*0.6 - 0.4)));
   return [g(powA - powB), g(powB - powA)];
 }
-function leagueStandings() {
-  const t = SAVE.league.table;
-  const rows = Object.keys(t).map(id => ({
-    id, name: id === 'neon' ? 'НЕОН' : (CLUBS.find(c => c.id === id) || {}).name || id,
-    col: id === 'neon' ? '#22d3ee' : '#' + ((CLUBS.find(c => c.id === id) || {col:0x888888}).col).toString(16).padStart(6,'0'),
-    ...t[id],
+function standingsOf(table) {
+  const rows = Object.keys(table).map(id => ({
+    id, name: id === 'neon' ? myName() : (clubById(id) || {}).name || id,
+    col: id === 'neon' ? '#22d3ee' : '#' + ((clubById(id) || {col:0x888888}).col).toString(16).padStart(6,'0'),
+    ...table[id],
   }));
   rows.sort((a,b) => b.pts - a.pts || (b.gf-b.ga) - (a.gf-a.ga) || b.gf - a.gf);
   return rows;
 }
+const leagueStandings = () => standingsOf(SAVE.league.table);
 function renderLeague() {
   if (!SAVE.league || !SAVE.league.table) newSeason();
-  const L = SAVE.league;
+  const L = SAVE.league, opps = myLeagueClubs();
   const rows = leagueStandings();
   const place = rows.findIndex(r => r.id === 'neon') + 1;
+  document.querySelector('#leaguescreen .endtitle').textContent = '⚽ ' + (LEAGUES[(myClub()||CLUBS[0]).lg] || 'ЧЕМПИОНАТ');
   document.getElementById('leagueinfo').innerHTML = L.done
-    ? `Сезон окончен! Твоё место: <b>${place}</b> из ${rows.length}`
-    : `Тур <b>${L.day + 1}</b> из ${CLUBS.length} · следующий соперник: <b>${CLUBS[L.day].name}</b> · ты на <b>${place}-м</b> месте`;
+    ? `Сезон окончен! Место: <b>${place}</b> · ${place<=4?'путёвка в ЛИГУ ЧЕМПИОНОВ':place===5?'путёвка в ЛИГУ ЕВРОПЫ':'путёвка в ЛИГУ КОНФЕРЕНЦИЙ'} 🎫`
+    : `Тур <b>${L.day + 1}</b> из ${opps.length} · соперник: <b>${opps[L.day].name}</b> · ты на <b>${place}-м</b> месте`;
   document.getElementById('leagueplay').style.display = L.done ? 'none' : '';
   document.getElementById('leaguetable').innerHTML =
     `<div class="ltrow hdr"><span>#</span><span class="ltname">КЛУБ</span><span>В</span><span>Н</span><span>П</span><span>МЯЧИ</span><span>О</span></div>`
@@ -2233,10 +2396,10 @@ function renderLeague() {
 }
 function leagueAfterMatch(s0, s1) {
   const L = SAVE.league; if (!L || L.done) return '';
-  const opp = CLUBS[L.day];
+  const opps = myLeagueClubs();
+  const opp = opps[L.day];
   recResult(L.table, 'neon', opp.id, s0, s1);
-  // остальные клубы играют между собой (3 пары, один отдыхает)
-  const rest = CLUBS.filter(c => c !== opp);
+  const rest = opps.filter(c => c !== opp);            // 4 клуба → 2 пары
   const rot = L.day % rest.length;
   const list = rest.slice(rot).concat(rest.slice(0, rot));
   for (let k = 0; k + 1 < list.length; k += 2) {
@@ -2245,12 +2408,14 @@ function leagueAfterMatch(s0, s1) {
   }
   L.day++;
   let msg = `Тур ${L.day} сыгран`;
-  if (L.day >= CLUBS.length) {
+  if (L.day >= opps.length) {
     L.done = true;
     const place = leagueStandings().findIndex(r => r.id === 'neon') + 1;
     const prize = place === 1 ? 600 : place <= 3 ? 300 : 100;
     SAVE.coins += prize;
-    msg = place === 1 ? `🏆 ЧЕМПИОН ЛИГИ! +${prize} 🪙` : `Сезон окончен: ${place}-е место, +${prize} 🪙`;
+    SAVE.euroQual = place <= 4 ? 'ucl' : place === 5 ? 'uel' : 'uecl';
+    msg = (place === 1 ? `🏆 ЧЕМПИОН! +${prize} 🪙 · ` : `Сезон: ${place}-е место, +${prize} 🪙 · `)
+        + `квалификация: ${EURO[SAVE.euroQual].name}`;
     if (place === 1) unlockAch('champion');
   }
   persist();
@@ -2260,7 +2425,7 @@ document.getElementById('leagueplay').addEventListener('click', () => {
   if (!SAVE.league || SAVE.league.done) return;
   document.getElementById('leaguescreen').style.display = 'none';
   showLineup('pre', () => {
-    const opp = CLUBS[SAVE.league.day];
+    const opp = myLeagueClubs()[SAVE.league.day];
     matchMode = 'league';
     DIFF = powDiff(opp.pow);
     oppTacticId = opp.tac;
@@ -2270,18 +2435,175 @@ document.getElementById('leagueplay').addEventListener('click', () => {
 });
 document.getElementById('leaguereset').addEventListener('click', () => { newSeason(); renderLeague(); });
 
-function renderCup() {
-  const rows = CUP_ROUNDS.map((r, i) => {
-    const status = SAVE.cup.done || i < SAVE.cup.round ? '✅' : (i === SAVE.cup.round ? '▶' : '🔒');
-    const cur = !SAVE.cup.done && i === SAVE.cup.round ? ' cur' : '';
-    return `<div class="cuprow${cur}"><div class="flag" style="background:#${r.col.toString(16).padStart(6,'0')}"></div><b>РАУНД ${i+1}: ${r.name}</b><span>${status}</span></div>`;
-  }).join('');
-  const head = SAVE.cup.done
-    ? '<div style="margin:10px 0;color:var(--lime);font-weight:700;letter-spacing:.1em">🏆 КУБОК ЗАВОЁВАН! Можно пройти заново.</div>'
-    : '<div style="margin:10px 0;color:#93a5c2">4 раунда на вылет. Поражение сбрасывает кубок, ничья — переигровка. Награды ×1.5.</div>';
-  document.getElementById('cupbody').innerHTML = head + rows;
-  document.getElementById('cupplay').textContent = SAVE.cup.done ? 'ПРОЙТИ ЗАНОВО' : `ИГРАТЬ РАУНД ${SAVE.cup.round+1}`;
+/* ================= ЕВРОКУБКИ: 4 группы → плей-офф с двумя матчами → финал ================= */
+const SCHED4 = [ [[0,1],[2,3]], [[0,2],[1,3]], [[0,3],[1,2]] ];   // круговая для четвёрки
+function newEuro(comp) {
+  const pool = CLUBS.filter(c => c.id !== SAVE.myClub).sort(() => Math.random() - 0.5).slice(0, 15);
+  const ids = ['neon', ...pool.map(c => c.id)];
+  const groups = [[], [], [], []];
+  ids.forEach((id, i) => groups[i % 4].push(id));   // я — в группе A
+  const table = {};
+  ids.forEach(id => table[id] = { pts:0,w:0,d:0,l:0,gf:0,ga:0 });
+  SAVE.euro = { comp, stage:'group', gDay:0, groups, table, ko:null, done:false, won:false };
+  persist();
 }
+function euroGroupRows(g) {
+  const t = SAVE.euro.table;
+  return SAVE.euro.groups[g].map(id => ({
+    id, name: id==='neon' ? myName() : (clubById(id)||{}).name || id,
+    col: id==='neon' ? '#22d3ee' : '#' + ((clubById(id)||{col:0x888888}).col).toString(16).padStart(6,'0'),
+    ...t[id],
+  })).sort((a,b) => b.pts - a.pts || (b.gf-b.ga) - (a.gf-a.ga) || b.gf - a.gf);
+}
+function euroPow(id) { return id === 'neon' ? 2 : (clubById(id) || {pow:2}).pow; }
+function euroName(id) { return id === 'neon' ? myName() : (clubById(id)||{}).name || id; }
+function myEuroOpp() {
+  const E = SAVE.euro;
+  if (E.stage === 'group') {
+    const pair = SCHED4[E.gDay].find(p => E.groups[0][p[0]] === 'neon' || E.groups[0][p[1]] === 'neon');
+    const oppIdx = E.groups[0][pair[0]] === 'neon' ? pair[1] : pair[0];
+    return clubById(E.groups[0][oppIdx]);
+  }
+  const pair = E.ko.pairs.find(p => p.includes('neon'));
+  return clubById(pair[0] === 'neon' ? pair[1] : pair[0]);
+}
+function euroSimPairFull(a, b) {          // CPU-пара: два лега, при равенстве — монетка
+  const [a1, b1] = simCpuScore(euroPow(a), euroPow(b));
+  const [b2, a2] = simCpuScore(euroPow(b), euroPow(a));
+  const ta = a1 + a2, tb = b1 + b2;
+  return ta > tb ? a : tb > ta ? b : (Math.random() < 0.5 ? a : b);
+}
+function renderEuro() {
+  const E = SAVE.euro;
+  const q = SAVE.euroQual;
+  const title = document.getElementById('eurotitle'), info = document.getElementById('euroinfo'),
+        body = document.getElementById('cupbody'), play = document.getElementById('cupplay');
+  if (!E) {
+    title.textContent = '🏆 ЕВРОКУБКИ';
+    info.innerHTML = q
+      ? `У тебя путёвка: <b>${EURO[q].name}</b>. Начинаем?`
+      : 'Сыграй сезон в своей лиге: топ-4 → ЛЧ · 5-е → ЛЕ · 6-е → ЛК';
+    body.innerHTML = '';
+    play.style.display = q ? '' : 'none';
+    play.textContent = 'СТАРТ ТУРНИРА';
+    return;
+  }
+  const C = EURO[E.comp];
+  title.textContent = `${C.ico} ${C.name}`;
+  play.textContent = 'ИГРАТЬ МАТЧ';
+  if (E.done) {
+    info.innerHTML = E.won ? `🏆 <b>ТРОФЕЙ ТВОЙ!</b> Сыграй новый сезон лиги за следующую путёвку.` : 'Вылет. Путь закончен — новый сезон лиги даст новую путёвку.';
+    play.style.display = 'none';
+  } else if (E.stage === 'group') {
+    info.innerHTML = `Групповой этап · тур <b>${E.gDay + 1}</b> из 3 · соперник: <b>${myEuroOpp().name}</b> · из группы выходят двое`;
+    play.style.display = '';
+  } else {
+    const R = ['ЧЕТВЕРТЬФИНАЛ', 'ПОЛУФИНАЛ', 'ФИНАЛ'][E.ko.round];
+    const venue = E.ko.round === 2 ? 'нейтральное поле' : E.ko.leg === 0 ? 'первый матч · ДОМА' : `ответный матч · В ГОСТЯХ (первый: ${E.ko.agg[0]}:${E.ko.agg[1]})`;
+    info.innerHTML = `<b>${R}</b> против <b>${myEuroOpp().name}</b> · ${venue}`;
+    play.style.display = '';
+  }
+  if (E.stage === 'group') {
+    body.innerHTML = `<div class="eurogroups">` + [0,1,2,3].map(g =>
+      `<div class="eg"><h5>ГРУППА ${'ABCD'[g]}</h5>` + euroGroupRows(g).map((r, i) =>
+        `<div class="egrow${r.id==='neon'?' me':''}${i<2?' q':''}">
+          <span class="egname"><i class="ltdot" style="background:${r.col}"></i>${r.name}</span>
+          <span>${r.gf}:${r.ga}</span><span class="ltpts">${r.pts}</span></div>`).join('') + `</div>`).join('') + `</div>`;
+  } else {
+    body.innerHTML = `<div class="eurobracket">` + E.ko.pairs.map(p =>
+      `<div class="ebrow${p.includes('neon')?' me':''}">
+        <span>${euroName(p[0])} — ${euroName(p[1])}</span>
+        ${p.includes('neon') && E.ko.leg === 1 ? `<span class="ebagg">1-й матч ${E.ko.agg[0]}:${E.ko.agg[1]}</span>` : ''}</div>`).join('') + `</div>`;
+  }
+}
+function euroAfterMatch(s0, s1, win, draw, soWinner) {
+  const E = SAVE.euro; if (!E || E.done) return '';
+  const C = EURO[E.comp];
+  let msg = '';
+  if (E.stage === 'group') {
+    const opp = myEuroOpp();
+    recResult(E.table, 'neon', opp.id, s0, s1);
+    // остальные пары всех групп этого тура
+    for (let g = 0; g < 4; g++) {
+      for (const [i, j] of SCHED4[E.gDay]) {
+        const a = E.groups[g][i], b = E.groups[g][j];
+        if (a === 'neon' || b === 'neon') continue;
+        const [ga, gb] = simCpuScore(euroPow(a), euroPow(b));
+        recResult(E.table, a, b, ga, gb);
+      }
+    }
+    E.gDay++;
+    msg = `Тур ${E.gDay}/3 группового этапа`;
+    if (E.gDay >= 3) {
+      const tops = [0,1,2,3].map(g => euroGroupRows(g).slice(0, 2).map(r => r.id));
+      if (!tops[0].includes('neon')) { E.done = true; msg = 'Не вышли из группы. Турнир окончен.'; }
+      else {
+        // A1-B2, B1-A2, C1-D2, D1-C2
+        E.stage = 'ko';
+        E.ko = { round:0, leg:0, agg:[0,0],
+          pairs: [[tops[0][0], tops[1][1]], [tops[1][0], tops[0][1]], [tops[2][0], tops[3][1]], [tops[3][0], tops[2][1]]] };
+        msg = 'Выход в плей-офф! Впереди четвертьфинал';
+      }
+    }
+  } else {
+    const ko = E.ko;
+    if (ko.round < 2 && ko.leg === 0) {
+      ko.agg = [s0, s1]; ko.leg = 1;
+      msg = `Первый матч: ${s0}:${s1}. Ответный — на выезде`;
+    } else {
+      const t0 = ko.agg[0] + s0, t1 = ko.agg[1] + s1;
+      const advanced = ko.round === 2
+        ? (s0 > s1 || soWinner === 0)
+        : (t0 > t1 || (t0 === t1 && soWinner === 0));
+      if (ko.round === 2) {
+        E.done = true; E.won = advanced;
+        if (advanced) { SAVE.coins += C.prize; unlockAch('champion'); msg = `🏆 ${C.name} НАША! +${C.prize} 🪙`; }
+        else msg = 'Поражение в финале...';
+      } else if (!advanced) {
+        E.done = true;
+        msg = `Вылет по сумме двух матчей (${t0}:${t1})`;
+      } else {
+        // продвижение + симуляция остальных пар
+        const myPair = ko.pairs.find(p => p.includes('neon'));
+        const winners = ko.pairs.map(p => p === myPair ? 'neon' : euroSimPairFull(p[0], p[1]));
+        ko.round++;
+        ko.leg = 0; ko.agg = [0, 0];
+        ko.pairs = ko.round === 1
+          ? [[winners[0], winners[1]], [winners[2], winners[3]]]
+          : [[winners[0], winners[1]]];
+        // гарантируем, что я в первой паре финала
+        if (ko.round === 2 && !ko.pairs[0].includes('neon')) ko.pairs = [[ 'neon', winners.find(w => w !== 'neon') ]];
+        msg = `Проход по сумме ${t0}:${t1}! Дальше: ${['','ПОЛУФИНАЛ','ФИНАЛ'][ko.round]}`;
+      }
+    }
+  }
+  persist();
+  return msg;
+}
+document.getElementById('cupplay').addEventListener('click', () => {
+  if (!SAVE.euro) {
+    if (!SAVE.euroQual) return;
+    newEuro(SAVE.euroQual);
+    SAVE.euroQual = null; persist();
+    renderEuro();
+    return;
+  }
+  const E = SAVE.euro; if (E.done) return;
+  document.getElementById('cupscreen').style.display = 'none';
+  showLineup('pre', () => {
+    const opp = myEuroOpp();
+    matchMode = 'euro';
+    matchCtx = matchCtx || {};
+    DIFF = powDiff(opp.pow);
+    oppTacticId = opp.tac;
+    setOpponent(opp);
+    startMatch();
+    matchCtx.euroKO = E.stage === 'ko' ? { leg: E.ko.leg, agg0: E.ko.agg[0], agg1: E.ko.agg[1], final: E.ko.round === 2 } : null;
+    matchCtx.venue = E.stage === 'ko' ? (E.ko.round === 2 ? 'neutral' : E.ko.leg === 0 ? 'home' : 'away') : 'home';
+    arenaTheme(matchCtx.venue === 'home' ? null : matchCtx.venue === 'neutral' ? 0x9f4dff : (opp.col));
+  });
+});
+
 function renderSettings() {
   document.getElementById('tgl-sound').classList.toggle('on', SAVE.set.sound);
   document.getElementById('tgl-music').classList.toggle('on', SAVE.set.music);
@@ -2308,19 +2630,6 @@ document.getElementById('tgl-vibro').addEventListener('click', function() {
   SAVE.set.vibro = !SAVE.set.vibro; persist();
   this.classList.toggle('on', SAVE.set.vibro);
 });
-document.getElementById('cupplay').addEventListener('click', () => {
-  document.getElementById('cupscreen').style.display = 'none';
-  showLineup('pre', () => {
-    if (SAVE.cup.done) { SAVE.cup.round = 0; SAVE.cup.done = false; persist(); }
-    const r = CUP_ROUNDS[SAVE.cup.round];
-    matchMode = 'cup';
-    DIFF = r.d < 3 ? DIFFS[r.d] : CUP_FINAL_DIFF;
-    oppTacticId = r.d >= 2 ? 'attack' : r.d === 1 ? 'balance' : 'defense';
-    setOpponent(r);
-    startMatch();
-  });
-});
-
 /* ================= ONLINE (WebRTC / PeerJS) ================= */
 const NET = {
   mode: 'off',            // off | host | guest
@@ -2632,6 +2941,7 @@ const COMM = {
   starGoal: ['ЗВЕЗДА СИЯЕТ! Гол — %s!', 'Десятый номер решает — %s!', 'Вот почему он звезда! %s!'],
   injury: ['Игрок остаётся лежать... похоже, травма.', 'Держится за ногу — нужна помощь медиков.', 'Неприятно. Это может быть повреждение.'],
   sub: ['Замена: свежие ноги в игре!', 'Тренер решается на замену.', 'Со скамейки выходит новый игрок.'],
+  trophy: ['КУБОК НАШ! Историческая победа!', 'Капитан поднимает трофей над головой!', 'Этот вечер город не забудет никогда!'],
   lead0: ['НЕОН контролирует игру.', 'Хозяева уверенно ведут дело к победе.', 'Сопернику нужно срочно что-то менять.'],
   lead1: ['НЕОН должен прибавить.', 'Гости пока выглядят сильнее.', 'Трибуны ждут ответа НЕОНА.'],
   drawIdle: ['Равная игра — всё решится в концовке.', 'Команды осторожничают.', 'Ничейный счёт держит интригу.'],
@@ -2645,6 +2955,7 @@ function commSay(kind, extra, cd) {
   commCd[kind] = perfNow;
   let txt = bank[(Math.random()*bank.length)|0];
   if (extra != null) txt = txt.replace('%s', extra);
+  txt = txt.replace(/НЕОН/g, myName());   // комментатор знает твой клуб
   commTextEl.textContent = txt;
   commBar.classList.add('show');
   clearTimeout(commHideT);
@@ -2920,6 +3231,7 @@ function startMatch() {
   initAudio(); if (AC && AC.state==='suspended') AC.resume();
   crowdLevel(0.10, 1.5);
   musicDuck(true);
+  if (matchMode !== 'euro') arenaTheme(null);   // еврокубок сам красит арену под хозяина
   sWhistle(1);
   setBtnMode('atk');
   kickoff(0);
@@ -2945,10 +3257,10 @@ function endMatch() {
   document.getElementById('endscore').style.color = win?'#22d3ee':(!draw?'#ff5a2e':'#b8f335');
   const soTxt = soWin!=null ? ` ПО ПЕНАЛЬТИ ${matchCtx.soScore}` : '';
   document.getElementById('endverdict').textContent =
-    win ? `ПОБЕДА НЕОНА${soTxt}!` : (draw ? 'НИЧЬЯ' : `ПОБЕДА: ${teams[1].name}${soTxt}`);
+    win ? `ПОБЕДА: ${myName()}${soTxt}!` : (draw ? 'НИЧЬЯ' : `ПОБЕДА: ${teams[1].name}${soTxt}`);
   commSay(win ? 'ftWin' : draw ? 'ftDraw' : 'ftLoss', null, 1);
   // progression rewards
-  const mult = matchMode==='cup' ? 1.5 : matchMode==='league' ? 1.2 : 1;
+  const mult = matchMode==='euro' ? 1.5 : matchMode==='league' ? 1.2 : 1;
   const coins = Math.round((win?50:(draw?20:10))*mult) + s0*5;
   const xp = Math.round((win?100:(draw?40:15))*mult) + s0*20;
   const oldLevel = levelOf(SAVE.xp);
@@ -2961,13 +3273,10 @@ function endMatch() {
   SAVE.best.push({ r:`${s0}:${s1}`, o:teams[1].name, m:win?margin:-margin, cup:matchMode==='cup' });
   SAVE.best.sort((a,b)=>b.m-a.m); SAVE.best = SAVE.best.slice(0,8);
   let cupMsg = '';
-  if (matchMode==='cup') {
-    if (win) {
-      SAVE.cup.round++;
-      if (SAVE.cup.round >= CUP_ROUNDS.length) { SAVE.cup.done = true; cupMsg = '🏆 ЛИГА ЧЕМПИОНОВ ВАША!'; unlockAch('champion'); }
-      else cupMsg = `Раунд пройден! Дальше: ${CUP_ROUNDS[SAVE.cup.round].name}`;
-    } else if (draw) cupMsg = 'Ничья — переигровка раунда';
-    else { SAVE.cup.round = 0; cupMsg = 'Вылет из Лиги Чемпионов'; }
+  if (matchMode==='euro' && SAVE.euro) {
+    const wasFinal = SAVE.euro.stage === 'ko' && SAVE.euro.ko && SAVE.euro.ko.round === 2 && !SAVE.euro.done;
+    cupMsg = euroAfterMatch(s0, s1, win, draw, soWin);
+    if (wasFinal && SAVE.euro.won) matchCtx.trophy = true;
   }
   if (matchMode==='league') cupMsg = leagueAfterMatch(s0, s1);
   checkAchievements(s0, s1, win, draw);
@@ -2999,7 +3308,8 @@ function endMatch() {
     `<div class="rg${r===bestR?' best':''}"><span>${p.num}</span> ${p.name || 'ИГРОК'}${p.injured?' 🚑':''}
      <b style="color:${r>=7.5?'#b8f335':r>=6?'#dbe5f5':'#ff6a4d'}">${r.toFixed(1)}</b></div>`).join('');
   if (NET.mode === 'host') netSend({ t:'end', s0, s1, p0, sh0: stats.shots[0], sh1: stats.shots[1] });
-  setTimeout(()=>{ document.getElementById('endscreen').style.display='flex'; crowdLevel(0.06,2); }, 900);
+  if (matchCtx.trophy) startTrophy();   // финал выигран — сначала церемония с кубком
+  else setTimeout(()=>{ document.getElementById('endscreen').style.display='flex'; crowdLevel(0.06,2); }, 900);
 }
 function togglePause() {
   if (NET.mode !== 'off') return;   // no pausing online — the sim must keep flowing
@@ -3901,7 +4211,7 @@ function renderSoboard() {
   };
   soboardEl.innerHTML =
     `<div class="sot">СЕРИЯ ПЕНАЛЬТИ</div>
-     <div class="sorow"><b style="color:var(--cyan)">НЕОН</b><span class="sod">${dots(0)}</span><span class="sc">${SO.score[0]}</span></div>
+     <div class="sorow"><b style="color:var(--cyan)">${myName()}</b><span class="sod">${dots(0)}</span><span class="sc">${SO.score[0]}</span></div>
      <div class="sorow"><b style="color:var(--mag)">${teams[1].name}</b><span class="sod">${dots(1)}</span><span class="sc">${SO.score[1]}</span></div>`;
 }
 function beginShootout() {
@@ -4329,7 +4639,7 @@ function awardGoal(scoringTeam) {
   scoringTeam.score++;
   updateHUD();
   state = 'GOAL'; stateT = 2.8;
-  showMsg('ГОЛ!', scoringTeam.id===0 ? 'НЕОН забивает!' : `${teams[1].name} забивает!`);
+  showMsg('ГОЛ!', scoringTeam.id===0 ? `${myName()} забивает!` : `${teams[1].name} забивает!`);
   const scorer = ball.lastKicker;
   if (scorer && scorer.team === scoringTeam.id) scorer.rating += 1.4;
   const as = ball.assist;
@@ -4496,6 +4806,11 @@ function updateCamera(dt) {
     px = dir*(F.HL - 26); py = 8.5; pz = 12;
     lx = dir*F.HL; ly = 1.7; lz = 0;
     if (camera.aspect < 1) { px = dir*(F.HL - 30); py = 11; pz = 15; }
+  } else if (state==='TROPHY') {
+    // церемония: облёт вокруг кубка и команды
+    const t = perfNow * 0.35;
+    px = Math.cos(t) * 15; py = 4.5; pz = 4 + Math.sin(t) * 15;
+    lx = 0; ly = 1.6; lz = 4;
   } else if (state==='VAR' && RP.active) {
     // broadcast replay: low sideline camera near the incident, slow dolly
     const sp = RP.spot;
@@ -4551,6 +4866,11 @@ function drawRadar() {
 function halfOrEnd() {
   const s0 = teams[0].score, s1 = teams[1].score;
   if (state==='HALFTIME' || state==='SHOOTOUT_BREAK') return;
+  // еврокубковый матч на вылет требует победителя: финал при ничьей,
+  // ответный матч — при равной сумме двух встреч
+  const ek = matchCtx && matchCtx.euroKO;
+  const needWinner = matchMode==='euro' && ek &&
+    (ek.final ? s0 === s1 : (ek.leg === 1 && ek.agg0 + s0 === ek.agg1 + s1));
   const breakTo = (msg, sub) => {
     state='HALFTIME'; stateT=2.6;
     showMsg(msg, sub);
@@ -4562,12 +4882,12 @@ function halfOrEnd() {
     breakTo('ПЕРЕРЫВ', `ВЛАДЕНИЕ ${p0}% — ${100-p0}%`);
     commSay('halftime', null, 3);
   } else if (half===2) {
-    if (matchMode==='cup' && s0===s1) { breakTo('ДОПОЛНИТЕЛЬНОЕ ВРЕМЯ', 'два коротких тайма, потом пенальти'); commSay('extratime', null, 3); }
+    if (needWinner) { breakTo('ДОПОЛНИТЕЛЬНОЕ ВРЕМЯ', 'два коротких тайма, потом пенальти'); commSay('extratime', null, 3); }
     else endMatch();
   } else if (half===3) {
     breakTo('ПЕРЕРЫВ', 'второй тайм доп. времени');
   } else {
-    if (matchMode==='cup' && s0===s1) beginShootout();
+    if (needWinner) beginShootout();
     else endMatch();
   }
 }
@@ -4679,6 +4999,17 @@ function loop(now) {
     if (stateT <= 0) finishVAR();
   } else if (state==='PENALTY') {
     updatePenalty(dt);
+  } else if (state==='TROPHY') {
+    stateT -= dt; trophyT += dt;
+    trophy.g.rotation.y += dt * 0.8;
+    movePlayers(dt);
+    if (trophyT > 1.4) { trophyT = 0; spawnFireworks((Math.random()-0.5)*30, (Math.random()-0.5)*20); }
+    if (stateT <= 0) {
+      trophy.g.visible = false;
+      state = 'FULLTIME';
+      document.getElementById('endscreen').style.display = 'flex';
+      crowdLevel(0.06, 2);
+    }
   } else if (state==='SHOOTOUT_BREAK' || state==='SHOOTOUT_WAIT' || state==='SHOOTOUT_END') {
     stateT -= dt;
     for (const p of allPlayers) if (!p.sentOff) animatePlayer(p, dt, 0);
@@ -4794,9 +5125,10 @@ function commonVisuals(dt, now) {
 requestAnimationFrame(loop);
 
 refreshPlayerbar();
-applyCosmetics();
+applyClub();
 setOpponent(MAGMA_CFG);
 setFormationPositions(true);
+if (!SAVE.myClub) showClubPicker();   // новый игрок выбирает свой клуб
 
 camera.position.set(68, 24, 0);
 camera.lookAt(0, 1.8, 0);
