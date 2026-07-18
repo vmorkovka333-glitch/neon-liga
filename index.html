@@ -580,7 +580,7 @@
 <div class="screen" id="startscreen" data-screen-label="Главное меню">
   <div class="menucard">
     <h1><span>НЕОН</span>-ЛИГА</h1>
-    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V5.3</div>
+    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V5.4</div>
     <div id="playerbar">
       <span id="pb-level">УРОВЕНЬ <b>1</b></span>
       <span id="pb-coins">🪙 <b>0</b></span>
@@ -821,10 +821,14 @@ const TACTICS = {
     withBall:9, offBall:-7, fwPush:7, mfPush:3, pressBonus:0, spdMul:1.0,
     form: [
       {fx:-0.93, fz:0.00, role:'GK'},
-      {fx:-0.60, fz:-0.66, role:'DF'}, {fx:-0.66, fz:-0.23, role:'DF'},
-      {fx:-0.66, fz: 0.23, role:'DF'}, {fx:-0.60, fz: 0.66, role:'DF'},
-      {fx:-0.26, fz:-0.70, role:'MF'}, {fx:-0.34, fz:-0.24, role:'MF'},
-      {fx:-0.34, fz: 0.24, role:'MF'}, {fx:-0.26, fz: 0.70, role:'MF'},
+      {fx:-0.62, fz:-0.62, role:'DF'},  // ЛЗ по флангу
+      {fx:-0.70, fz:-0.15, role:'DF'},  // ЦЗ плотно по центру перед штрафной
+      {fx:-0.70, fz: 0.15, role:'DF'},  // ЦЗ
+      {fx:-0.62, fz: 0.62, role:'DF'},  // ПЗ по флангу
+      {fx:-0.28, fz:-0.66, role:'MF'},  // полузащита заметно выше линии обороны
+      {fx:-0.34, fz:-0.20, role:'MF'},
+      {fx:-0.34, fz: 0.20, role:'MF'},
+      {fx:-0.28, fz: 0.66, role:'MF'},
       {fx:-0.03, fz:-0.20, role:'FW'}, {fx:-0.03, fz: 0.20, role:'FW'},
     ],
   },
@@ -833,10 +837,13 @@ const TACTICS = {
     withBall:12, offBall:-5, fwPush:9, mfPush:5, pressBonus:1, spdMul:1.02,
     form: [
       {fx:-0.90, fz:0.00, role:'GK'},
-      {fx:-0.55, fz:-0.66, role:'DF'}, {fx:-0.58, fz:-0.22, role:'DF'},
-      {fx:-0.58, fz: 0.22, role:'DF'}, {fx:-0.55, fz: 0.66, role:'DF'},
-      {fx:-0.20, fz:-0.42, role:'MF'}, {fx:-0.24, fz: 0.00, role:'MF'},
-      {fx:-0.20, fz: 0.42, role:'MF'},
+      {fx:-0.58, fz:-0.60, role:'DF'},  // ЛЗ
+      {fx:-0.65, fz:-0.16, role:'DF'},  // ЦЗ
+      {fx:-0.65, fz: 0.16, role:'DF'},  // ЦЗ
+      {fx:-0.58, fz: 0.60, role:'DF'},  // ПЗ
+      {fx:-0.30, fz: 0.00, role:'MF'},  // опорный по центру
+      {fx:-0.20, fz:-0.40, role:'MF'},
+      {fx:-0.20, fz: 0.40, role:'MF'},
       {fx: 0.08, fz:-0.56, role:'FW'}, {fx: 0.14, fz: 0.00, role:'FW'},
       {fx: 0.08, fz: 0.56, role:'FW'},
     ],
@@ -846,11 +853,14 @@ const TACTICS = {
     withBall:6, offBall:-9, fwPush:5, mfPush:1, pressBonus:-1, spdMul:0.99,
     form: [
       {fx:-0.94, fz:0.00, role:'GK'},
-      {fx:-0.58, fz:-0.75, role:'DF'}, {fx:-0.70, fz:-0.36, role:'DF'},
-      {fx:-0.72, fz: 0.00, role:'DF'}, {fx:-0.70, fz: 0.36, role:'DF'},
-      {fx:-0.58, fz: 0.75, role:'DF'},
-      {fx:-0.34, fz:-0.42, role:'MF'}, {fx:-0.38, fz: 0.00, role:'MF'},
-      {fx:-0.34, fz: 0.42, role:'MF'},
+      {fx:-0.60, fz:-0.72, role:'DF'},  // левый латераль
+      {fx:-0.74, fz:-0.24, role:'DF'},  // ЦЗ
+      {fx:-0.77, fz: 0.00, role:'DF'},  // либеро в центре
+      {fx:-0.74, fz: 0.24, role:'DF'},  // ЦЗ
+      {fx:-0.60, fz: 0.72, role:'DF'},  // правый латераль
+      {fx:-0.32, fz:-0.40, role:'MF'},
+      {fx:-0.38, fz: 0.00, role:'MF'},
+      {fx:-0.32, fz: 0.40, role:'MF'},
       {fx:-0.08, fz:-0.22, role:'FW'}, {fx:-0.08, fz: 0.22, role:'FW'},
     ],
   },
@@ -1988,6 +1998,24 @@ const EURO = {
   uel:  { name:'ЛИГА ЕВРОПЫ',      ico:'🥈', prize:600,  trophyCol:0xff9d2e },
   uecl: { name:'ЛИГА КОНФЕРЕНЦИЙ', ico:'🥉', prize:400,  trophyCol:0x8bf06a },
 };
+/* ---- принципиальные матчи (дерби): особая атмосфера + бонус ---- */
+const DERBIES = [
+  ['bayern','dortm','ДЕР КЛАССИКЕР'],
+  ['real','barca','ЭЛЬ КЛАСИКО'],
+  ['real','atlet','МАДРИДСКОЕ ДЕРБИ'],
+  ['city','manu','МАНЧЕСТЕРСКОЕ ДЕРБИ'],
+  ['liver','manu','СЕВЕРО-ЗАПАДНОЕ ДЕРБИ'],
+  ['arsen','totte','ДЕРБИ СЕВЕРНОГО ЛОНДОНА'],
+  ['chels','arsen','ЛОНДОНСКОЕ ДЕРБИ'],
+  ['inter','milan','ДЕРБИ ДЕЛЛА МАДОННИНА'],
+  ['juve','inter','ДЕРБИ ИТАЛИИ'],
+  ['roma','napol','ЮЖНОЕ ДЕРБИ'],
+];
+function derbyName(a, b) {
+  const d = DERBIES.find(x => (x[0]===a && x[1]===b) || (x[0]===b && x[1]===a));
+  return d ? d[2] : null;
+}
+let curOppId = null;   // id клуба-соперника текущего матча (для дерби)
 
 /* ================= SQUAD / ROSTER ================= */
 const COACH = { name: 'БОРИС НЕОНОВ' };
@@ -2371,6 +2399,7 @@ document.querySelectorAll('#trainmodal [data-train]').forEach(b => b.addEventLis
   document.getElementById('trainmodal').classList.remove('show');
   trainKind = b.dataset.train;
   matchMode = 'train';
+  curOppId = null;
   DIFF = DIFFS[1];
   setOpponent(trainKind === 'match'
     ? { name:'ДУБЛЬ', col:0xffe14d, shorts:0x3a2f05 }   // дубль в жёлтых манишках
@@ -2605,7 +2634,8 @@ function applyClub() {
 function buildOppRow() {
   const row = document.getElementById('opprow');
   const opts = [`<div class="opt sel" data-o="magma">МАГМА</div>`]
-    .concat(CLUBS.filter(c => c.id !== SAVE.myClub).map(c => `<div class="opt" data-o="${c.id}">${c.name}</div>`));
+    .concat(CLUBS.filter(c => c.id !== SAVE.myClub).map(c =>
+      `<div class="opt" data-o="${c.id}">${c.name}${derbyName(SAVE.myClub, c.id) ? ' 🔥' : ''}</div>`));
   row.innerHTML = opts.join('');
   menuOppId = 'magma';
 }
@@ -2721,6 +2751,7 @@ document.getElementById('leagueplay').addEventListener('click', () => {
     matchMode = 'league';
     DIFF = powDiff(opp.pow);
     oppTacticId = opp.tac;
+    curOppId = opp.id;
     setOpponent(opp);
     startMatch();
   });
@@ -2892,6 +2923,7 @@ document.getElementById('cupplay').addEventListener('click', () => {
     matchCtx = matchCtx || {};
     DIFF = powDiff(opp.pow);
     oppTacticId = opp.tac;
+    curOppId = opp.id;
     setOpponent(opp);
     startMatch();
     matchCtx.euroKO = E.stage === 'ko' ? { leg: E.ko.leg, agg0: E.ko.agg[0], agg1: E.ko.agg[1], final: E.ko.round === 2 } : null;
@@ -3238,6 +3270,7 @@ const COMM = {
   injury: ['Игрок остаётся лежать... похоже, травма.', 'Держится за ногу — нужна помощь медиков.', 'Неприятно. Это может быть повреждение.'],
   sub: ['Замена: свежие ноги в игре!', 'Тренер решается на замену.', 'Со скамейки выходит новый игрок.'],
   trophy: ['КУБОК НАШ! Историческая победа!', 'Капитан поднимает трофей над головой!', 'Этот вечер город не забудет никогда!'],
+  derby: ['ДЕРБИ! Особый матч, особые нервы!', 'Принципиальнейшее противостояние — трибуны кипят!', 'Такие матчи не проигрывают — их выгрызают!'],
   lead0: ['НЕОН контролирует игру.', 'Хозяева уверенно ведут дело к победе.', 'Сопернику нужно срочно что-то менять.'],
   lead1: ['НЕОН должен прибавить.', 'Гости пока выглядят сильнее.', 'Трибуны ждут ответа НЕОНА.'],
   drawIdle: ['Равная игра — всё решится в концовке.', 'Команды осторожничают.', 'Ничейный счёт держит интригу.'],
@@ -3517,6 +3550,7 @@ document.getElementById('packok').addEventListener('click', () => {
 
 function startMatch() {
   matchCtx = { maxDeficit: 0, soWin: null, soScore: null };
+  matchCtx.derby = matchMode !== 'train' ? derbyName(SAVE.myClub, curOppId) : null;
   SO = null; RP.buf.length = 0; rpEnd();
   soboardEl.style.display = 'none';
   teams[1].human = matchMode === 'online';
@@ -3578,9 +3612,15 @@ function startMatch() {
     });
     ball.owner = null; ball.pos.set(0, BALL_R, 0); ball.vel.set(0, 0, 0);
     if (matchMode === 'euro') sAnthem();
-    showMsg('КОМАНДЫ ВЫХОДЯТ', `${myName()} — ${teams[1].name}`
-      + (weather === 'rain' ? ' · ДОЖДЬ 🌧' : weather === 'snow' ? ' · СНЕГ ❄️' : ''));
-    crowdLevel(0.22, 1.2);
+    const wx = weather === 'rain' ? ' · ДОЖДЬ 🌧' : weather === 'snow' ? ' · СНЕГ ❄️' : '';
+    if (matchCtx.derby) {
+      showMsg(`🔥 ${matchCtx.derby}`, `${myName()} — ${teams[1].name}${wx}`);
+      crowdLevel(0.4, 1.0); crowdPulse = 1;            // дерби заводит трибуны
+      commSay('derby', null, 1);
+    } else {
+      showMsg('КОМАНДЫ ВЫХОДЯТ', `${myName()} — ${teams[1].name}${wx}`);
+      crowdLevel(0.22, 1.2);
+    }
   } else {
     crowdMesh.visible = true;
     trainCones.visible = false;
@@ -3621,8 +3661,10 @@ function endMatch() {
     win ? `ПОБЕДА: ${myName()}${soTxt}!` : (draw ? 'НИЧЬЯ' : `ПОБЕДА: ${teams[1].name}${soTxt}`);
   commSay(win ? 'ftWin' : draw ? 'ftDraw' : 'ftLoss', null, 1);
   // progression rewards
-  const mult = matchMode==='euro' ? 1.5 : matchMode==='league' ? 1.2 : 1;
-  const coins = Math.round((win?50:(draw?20:10))*mult) + s0*5;
+  const derby = !!matchCtx.derby;
+  const mult = (matchMode==='euro' ? 1.5 : matchMode==='league' ? 1.2 : 1) * (derby ? 1.5 : 1);
+  const derbyBonus = derby && win ? 150 : 0;   // победа в дерби — сверху
+  const coins = Math.round((win?50:(draw?20:10))*mult) + s0*5 + derbyBonus;
   const xp = Math.round((win?100:(draw?40:15))*mult) + s0*20;
   const oldLevel = levelOf(SAVE.xp);
   const rChg = Math.round((win ? 20+margin*4 : draw ? 3 : -(16+margin*3)) * mult);
@@ -3646,6 +3688,7 @@ function endMatch() {
   persist();
   document.getElementById('rewards').innerHTML =
     `+<b>${xp}</b> XP · +<b>${coins}</b> 🪙 · РЕЙТИНГ <b>${rChg>=0?'+':''}${rChg}</b>`
+    + (derby && win ? `<br>🔥 ПОБЕДА В ДЕРБИ! +${derbyBonus} 🪙 бонус` : derby ? `<br>🔥 ${matchCtx.derby}` : '')
     + (cupMsg ? `<br>${cupMsg}` : '')
     + (newLevel>oldLevel ? `<br>🌟 НОВЫЙ УРОВЕНЬ ${newLevel}!` : '');
   document.getElementById('endxp').style.width = (levelProgress(SAVE.xp)*100).toFixed(0)+'%';
@@ -3732,6 +3775,7 @@ document.getElementById('playbtn').addEventListener('click', () => {
     matchMode = 'friendly'; DIFF = DIFFS[menuDiffIdx];
     const opp = OPPS[menuOppId] || OPPS.magma;
     oppTacticId = opp.tac || (['defense','balance','attack'][menuDiffIdx] || 'balance');
+    curOppId = menuOppId;
     setOpponent(opp); startMatch();
   });
 });
@@ -4059,8 +4103,11 @@ function updateTeamAI(team, dt) {
     } else {
       // защитники дисциплинированнее держат позицию между мячом и воротами
       const hw = p.role==='DF' ? 0.82 : 0.72, bw = p.role==='DF' ? 0.34 : 0.42;
+      // центральные защитники держат ось перед штрафной, крайние — тянутся за мячом шире
+      const centreBack = p.role==='DF' && Math.abs(p.fz) < 0.35;
+      const zHome = centreBack ? 0.9 : 0.82, zBall = centreBack ? 0.18 : 0.32;
       let tx = homeX(p)*hw + ball.pos.x*bw + push*team.dir;
-      let tz = homeZ(p)*0.82 + ball.pos.z*0.32;
+      let tz = homeZ(p)*zHome + ball.pos.z*zBall;
       if (hasBall && p.role==='FW') tx += tac.fwPush*team.dir;
       if (hasBall && p.role==='MF') tx += tac.mfPush*team.dir;
       tx = THREE.MathUtils.clamp(tx, -F.HL+2, F.HL-2);
