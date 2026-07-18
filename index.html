@@ -216,6 +216,11 @@
     justify-content:center; gap:14px; background:rgba(4,8,16,.94); padding:20px; }
   #clubmodal.show{ display:flex; }
   #clubmodal .ptitle{ font-size:22px; font-weight:800; font-style:italic; color:#eaf1ff; }
+  #trainmodal{ position:fixed; inset:0; z-index:70; display:none; flex-direction:column; align-items:center;
+    justify-content:center; gap:16px; background:rgba(4,8,16,.92); }
+  #trainmodal.show{ display:flex; }
+  #trainmodal .ptitle{ font-size:22px; font-weight:800; font-style:italic; color:#eaf1ff; }
+  #trainmodal .mbtn small{ display:block; font-size:10.5px; letter-spacing:.1em; opacity:.7; font-weight:600; margin-top:2px; }
   .clubwrap{ width:min(560px,94vw); max-height:74vh; overflow-y:auto; display:flex; flex-direction:column; gap:10px; }
   .clubsec h4{ font-size:11px; letter-spacing:.3em; color:#8fa0bc; margin:6px 0 6px 2px; }
   .clubgrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:7px; }
@@ -545,6 +550,15 @@
   <div class="ptitle">ЗА КАКОЙ КЛУБ ИГРАЕШЬ?</div>
   <div class="clubwrap" id="clubgrid"></div>
 </div>
+<div id="trainmodal">
+  <div class="ptitle" id="traintitle">🏟 ТРЕНИРОВОЧНАЯ БАЗА</div>
+  <div class="btnrow col" style="width:min(340px,90vw)">
+    <button class="mbtn primary" data-train="match">⚔️ ДВУСТОРОНКА<br><small>основа против дубля</small></button>
+    <button class="mbtn" data-train="shoot">🎯 ОТРАБОТКА УДАРОВ<br><small>только ты и вратарь</small></button>
+    <button class="mbtn" data-train="drill">🏃 УПРАЖНЕНИЯ<br><small>конусы, кроссы, команда на пробежке</small></button>
+    <button class="mbtn" id="traincancel">ОТМЕНА</button>
+  </div>
+</div>
 <div id="power-meter"><div id="power-fill"></div></div>
 <div id="pausebtn"><i></i><i></i></div>
 
@@ -566,7 +580,7 @@
 <div class="screen" id="startscreen" data-screen-label="Главное меню">
   <div class="menucard">
     <h1><span>НЕОН</span>-ЛИГА</h1>
-    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V5.2</div>
+    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V5.3</div>
     <div id="playerbar">
       <span id="pb-level">УРОВЕНЬ <b>1</b></span>
       <span id="pb-coins">🪙 <b>0</b></span>
@@ -613,6 +627,7 @@
       <button class="mbtn small" id="leaguebtn">⚽ ЧЕМПИОНАТ</button>
       <button class="mbtn small" id="cupbtn">🏆 ЕВРОКУБКИ</button>
       <button class="mbtn small" id="trainmodebtn">🎯 ТРЕНИРОВКА</button>
+      <button class="mbtn small" id="transferbtn">💼 ТРАНСФЕРЫ</button>
       <button class="mbtn small" id="profilebtn">ПРОФИЛЬ</button>
       <button class="mbtn small" id="shopbtn">МАГАЗИН</button>
       <button class="mbtn small" id="settingsbtn">НАСТРОЙКИ</button>
@@ -714,6 +729,20 @@
       <button class="mbtn primary" id="cupplay">ИГРАТЬ МАТЧ</button>
       <button class="mbtn" data-back>НАЗАД</button>
     </div>
+  </div>
+</div>
+
+<div class="screen" id="transferscreen" style="display:none" data-screen-label="Трансферное окно">
+  <div class="menucard lineupcard">
+    <div class="endtitle">💼 ТРАНСФЕРНОЕ ОКНО</div>
+    <div class="coachrow">Покупай настоящих игроков из других клубов · <b id="tw-coins">🪙 0</b></div>
+    <div class="lu-sec">КЛУБ-ПРОДАВЕЦ</div>
+    <div class="optrow scrollrow" id="tw-clubs"></div>
+    <div class="lu-sec">ИГРОКИ КЛУБА</div>
+    <div id="tw-list" class="lulist"></div>
+    <div class="lu-sec">ПРОДАЖА ИЗ МОЕЙ КОМАНДЫ (скамейка)</div>
+    <div id="tw-sell" class="lulist"></div>
+    <div class="btnrow backrow"><button class="mbtn" data-back>НАЗАД</button></div>
   </div>
 </div>
 
@@ -1416,6 +1445,25 @@ const varTV = (() => {
   scene.add(coach.g);
 })();
 
+/* ---- тренировочные конусы: видны только на базе ---- */
+const trainCones = (() => {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color:0xff7a1a, emissive:0xff7a1a, emissiveIntensity:0.45 });
+  for (let i = 0; i < 8; i++) {
+    const c = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.72, 10), mat);
+    c.position.set(-21 + i * 6, 0.36, i % 2 ? 6 : 10);   // змейка для дриблинга
+    g.add(c);
+  }
+  for (let i = 0; i < 5; i++) {
+    const c = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.72, 10), mat);
+    c.position.set(-30 + i * 3, 0.36, -12);              // линия для ускорений
+    g.add(c);
+  }
+  g.visible = false;
+  scene.add(g);
+  return g;
+})();
+
 /* ---- стадион в цветах клуба-хозяина: неон-полосы + сектора болельщиков ---- */
 const CROWD_PALETTE = [0x00e5ff,0xff5a2e,0xffe14d,0xffffff,0x9f7dff,0x4ade80,0xff3da0,0x3b82f6];
 function arenaTheme(clubCol) {
@@ -1518,7 +1566,7 @@ function offsideLineX(dir) {
   return line;
 }
 function updateRefs(dt) {
-  const active = state!=='MENU' && state!=='FULLTIME';
+  const active = state!=='MENU' && state!=='FULLTIME' && matchMode!=='train';   // на базе судей нет
   for (const r of REFS) r.grp.visible = active;
   if (!active) return;
   const bx = ball.pos.x, bz = ball.pos.z;
@@ -2015,11 +2063,12 @@ for (const sp of SHOP_PLAYERS) {
 }
 SAVE.squad.start = SAVE.squad.start.map((id, i) => pdataById(id) ? id : ROSTER[i].id);
 SAVE.squad.bench = SAVE.squad.bench.filter(id => pdataById(id));
-// клуб уже выбран, но состав ещё «неоновый» → выдать настоящих игроков клуба
-if (SAVE.myClub && CLUB_ROSTERS[SAVE.myClub] && SAVE.squad.start.some(id => id.startsWith('b_'))) {
+// клуб выбран, но настоящих игроков клуба в обойме нет вообще → выдать реальный состав
+if (SAVE.myClub && CLUB_ROSTERS[SAVE.myClub]
+    && ![...SAVE.squad.start, ...SAVE.squad.bench].some(id => id.startsWith('rp_' + SAVE.myClub + '_'))) {
   const sq = squadForClub(SAVE.myClub);
   const kept = [...SAVE.squad.start, ...SAVE.squad.bench]
-    .filter(id => id.startsWith('pl_') || id.startsWith('cp_'));
+    .filter(id => id.startsWith('pl_') || id.startsWith('cp_') || id.startsWith('rp_'));
   SAVE.squad = { start: sq.start, bench: sq.bench.concat(kept) };
 }
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); } catch(e) {} }
@@ -2045,8 +2094,7 @@ const SHOP = [
   { id:'arena_sunset', cat:'АРЕНА', name:'Закат', price:600, c:0xff8a2e },
   { id:'arena_ice',    cat:'АРЕНА', name:'Лёд',   price:600, c:0x7df9ff },
 ];
-for (const sp of SHOP_PLAYERS)
-  SHOP.push({ id:sp.id, cat:'ИГРОКИ', name:`${sp.name} · ${sp.ovr}`, price:sp.price, c:0x22d3ee, pl:sp });
+// легионеры и паки из магазина убраны — теперь только настоящие игроки в ТРАНСФЕРНОМ ОКНЕ
 
 /* ---- паки с картами: испытай удачу ---- */
 const PACKS = {
@@ -2054,8 +2102,6 @@ const PACKS = {
   mid:    { name:'СРЕДНИЙ ПАК',      price:500,  ico:'🥈', desc:'2 хороших · 50% +100 🪙' },
   legend: { name:'ЛЕГЕНДАРНЫЙ ПАК',  price:1000, ico:'🥇', desc:'легенда + хороший + 300 🪙' },
 };
-for (const [pid, pk] of Object.entries(PACKS))
-  SHOP.push({ id:'pack_'+pid, cat:'ПАКИ', name:pk.name, price:pk.price, c:0xffd21a, pack:pid });
 const PACK_NAMES = ['ВОЛЬТА','КАТОД','ПЛАЗМА','КВАРК','НЕЙТРОН','ЛАЗЕР','ТЕСЛА','ОЗОН','РАДИЙ',
   'АРГОН','КСЕНОН','ТИТАН','ВЕГА','ОРИОН','ПУЛЬСАР','КВАЗАР','МЕТЕОР','ЦИКЛОН','РУБИН','ОНИКС','ЗЕНИТ','ФЛЮКС'];
 function genPackPlayer(tier, loose) {   // 0 средний 70-77 · 1 хороший 78-86 · 2 легенда 87-96
@@ -2100,15 +2146,63 @@ function buyMarket(i) {
 }
 function sellPlayer(id) {
   const pd = pdataById(id);
-  if (!pd || !sellableId(id)) return;
-  const price = sellPrice(pd);
+  if (!pd) return;
+  const price = twSellPrice(pd);
   SAVE.squad.bench = SAVE.squad.bench.filter(x => x !== id);
   if (id.startsWith('cp_')) SAVE.customPlayers = SAVE.customPlayers.filter(p => p.id !== id);
-  else delete SAVE.owned[id];             // легионера можно будет купить заново
+  else delete SAVE.owned[id];
   delete SAVE.ovrBoost[id];
   SAVE.coins += price;
   persist(); sBuy();
   toast(`💰 ${pd.name} продан за ${price} 🪙`);
+}
+
+/* ================= ТРАНСФЕРНОЕ ОКНО: настоящие игроки других клубов ================= */
+const twPrice = pd => 100 + Math.round(Math.max(0, effOvr(pd) - 60) ** 2 * 1.3);
+const twSellPrice = pd => Math.round(twPrice(pd) * 0.6);
+let twClubId = null;
+function inMySquad(id) { return SAVE.squad.start.includes(id) || SAVE.squad.bench.includes(id); }
+function renderTransfers() {
+  const others = CLUBS.filter(c => c.id !== SAVE.myClub);
+  if (!twClubId || twClubId === SAVE.myClub) twClubId = others[0].id;
+  document.getElementById('tw-coins').textContent = `🪙 ${SAVE.coins}`;
+  document.getElementById('tw-clubs').innerHTML = others.map(c =>
+    `<div class="opt${c.id===twClubId?' sel':''}" data-twc="${c.id}">${c.name}</div>`).join('');
+  // игроки выбранного клуба
+  const list = CLUB_PLAYERS.filter(p => p.club === twClubId);
+  document.getElementById('tw-list').innerHTML = list.map(pd => {
+    const ownedP = inMySquad(pd.id);
+    const btn = ownedP ? `<b class="lusell" style="color:#7ef0c8">В КОМАНДЕ</b>`
+      : `<b class="lusell" data-twbuy="${pd.id}">🪙 ${twPrice(pd)}</b>`;
+    return `<div class="lurow"><b class="lunum">${pd.num}</b><span class="luname">${pd.name}</span>
+      <i class="lupos">${pd.pos}</i>${btn}<b class="luovr ${ovrCls(effOvr(pd))}">${effOvr(pd)}</b></div>`;
+  }).join('');
+  // продажа: скамейка, кроме родных игроков моего клуба (контракт клуба)
+  const sellable = SAVE.squad.bench.filter(id => !id.startsWith('rp_' + SAVE.myClub + '_'));
+  document.getElementById('tw-sell').innerHTML = sellable.length
+    ? sellable.map(id => {
+        const pd = pdataById(id);
+        return `<div class="lurow"><b class="lunum">${pd.num}</b><span class="luname">${pd.name}</span>
+          <i class="lupos">${pd.pos}</i><b class="lusell" data-twsell="${id}">💰 ${twSellPrice(pd)}</b>
+          <b class="luovr ${ovrCls(effOvr(pd))}">${effOvr(pd)}</b></div>`;
+      }).join('')
+    : '<div class="coachrow">продавать некого — родной состав не продаётся</div>';
+  document.querySelectorAll('#tw-clubs [data-twc]').forEach(el =>
+    el.onclick = () => { twClubId = el.dataset.twc; renderTransfers(); });
+  document.querySelectorAll('#tw-list [data-twbuy]').forEach(el => el.onclick = () => {
+    const pd = pdataById(el.dataset.twbuy);
+    const price = twPrice(pd);
+    if (SAVE.coins < price) { toast('Не хватает монет 🪙'); sDeny(); return; }
+    SAVE.coins -= price;
+    SAVE.squad.bench.push(pd.id);
+    persist(); sBuy(); buzz(20);
+    toast(`✍️ ${pd.name} перешёл в ${myName()}! Он на скамейке.`);
+    renderTransfers();
+  });
+  document.querySelectorAll('#tw-sell [data-twsell]').forEach(el => el.onclick = () => {
+    sellPlayer(el.dataset.twsell);
+    renderTransfers();
+  });
 }
 function openPack(tier) {
   const items = [];
@@ -2240,7 +2334,7 @@ function setOpponent(cfg) {
 }
 
 /* --- menu screens --- */
-const SCREEN_IDS = ['profilescreen','shopscreen','cupscreen','settingsscreen','onlinescreen','leaguescreen'];
+const SCREEN_IDS = ['profilescreen','shopscreen','cupscreen','settingsscreen','onlinescreen','leaguescreen','transferscreen'];
 function refreshPlayerbar() {
   document.getElementById('pb-level').innerHTML = `УРОВЕНЬ <b>${levelOf(SAVE.xp)}</b>`;
   document.getElementById('pb-coins').innerHTML = `🪙 <b>${SAVE.coins}</b>`;
@@ -2254,6 +2348,7 @@ function showScreen(id) {
   if (id === 'cupscreen') renderEuro();
   if (id === 'settingsscreen') renderSettings();
   if (id === 'leaguescreen') renderLeague();
+  if (id === 'transferscreen') renderTransfers();
 }
 document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => {
   for (const s of SCREEN_IDS) document.getElementById(s).style.display = 'none';
@@ -2264,13 +2359,24 @@ document.getElementById('profilebtn').addEventListener('click', () => showScreen
 document.getElementById('shopbtn').addEventListener('click', () => showScreen('shopscreen'));
 document.getElementById('cupbtn').addEventListener('click', () => showScreen('cupscreen'));
 document.getElementById('leaguebtn').addEventListener('click', () => showScreen('leaguescreen'));
+document.getElementById('transferbtn').addEventListener('click', () => showScreen('transferscreen'));
+let trainKind = 'shoot';
 document.getElementById('trainmodebtn').addEventListener('click', () => {
-  // тренировка: только ты и вратарь соперника, время стоит — отрабатывай удары и финты
-  matchMode = 'train';
-  DIFF = DIFFS[menuDiffIdx];
-  setOpponent(MAGMA_CFG);
-  startMatch();
+  document.getElementById('traintitle').textContent = `🏟 БАЗА «${myName()}»`;
+  document.getElementById('trainmodal').classList.add('show');
 });
+document.getElementById('traincancel').addEventListener('click', () =>
+  document.getElementById('trainmodal').classList.remove('show'));
+document.querySelectorAll('#trainmodal [data-train]').forEach(b => b.addEventListener('click', () => {
+  document.getElementById('trainmodal').classList.remove('show');
+  trainKind = b.dataset.train;
+  matchMode = 'train';
+  DIFF = DIFFS[1];
+  setOpponent(trainKind === 'match'
+    ? { name:'ДУБЛЬ', col:0xffe14d, shorts:0x3a2f05 }   // дубль в жёлтых манишках
+    : MAGMA_CFG);
+  startMatch();
+}));
 document.getElementById('settingsbtn').addEventListener('click', () => showScreen('settingsscreen'));
 
 function renderProfile() {
@@ -2310,20 +2416,9 @@ function renderProfile() {
 function renderShop() {
   genThumbs();
   updateShopCoins(false);
-  if (!SAVE.market) rollMarket();
-  const marketHtml = `<section class="shopcat"><h3><em>✍️</em>ТРАНСФЕРЫ<span>обновление после матча</span></h3><div class="bsgrid">`
-    + SAVE.market.map((pd, i) => pd
-      ? `<div class="bsc r${pd.tier===2?3:pd.tier===1?2:1}" data-market="${i}">
-          <div class="bsc-rar">${pd.tier===2?'ЛЕГЕНДА':pd.tier===1?'ПРО':'БАЗА'}</div>
-          <div class="bsc-art packart p_basic" style="font-size:40px">${pd.tier===2?'🌟':'⚽'}<b style="position:absolute;font-size:26px;color:#ffd21a">${effOvr(pd)}</b></div>
-          <div class="bsc-name">${pd.name}</div>
-          <div class="bsc-tag">${pd.pos} · №${pd.num}</div>
-          <div class="bsc-btn price${SAVE.coins < marketPrice(pd) ? ' locked' : ''}">🪙 ${marketPrice(pd)}</div></div>`
-      : `<div class="bsc r0"><div class="bsc-art packart p_basic">✅</div><div class="bsc-name">ПОДПИСАН</div></div>`).join('')
-    + `</div></section>`;
-  const cats = ['ПАКИ','ИГРОКИ','ФОРМА','МЯЧ','СЛЕД','АРЕНА'];
-  const CATICO = { 'ПАКИ':'🎴', 'ИГРОКИ':'🌟', 'ФОРМА':'👕', 'МЯЧ':'⚽', 'СЛЕД':'✨', 'АРЕНА':'🏟' };
-  document.getElementById('shopbody').innerHTML = marketHtml + cats.map(cat => {
+  const cats = ['ФОРМА','МЯЧ','СЛЕД','АРЕНА'];
+  const CATICO = { 'ФОРМА':'👕', 'МЯЧ':'⚽', 'СЛЕД':'✨', 'АРЕНА':'🏟' };
+  document.getElementById('shopbody').innerHTML = cats.map(cat => {
     const list = SHOP.filter(i => i.cat === cat);
     const ownedN = list.filter(i => SAVE.owned[i.id]).length;
     const cards = list.map(i => {
@@ -2352,8 +2447,6 @@ function renderShop() {
     const cnt = cat==='ПАКИ' ? '∞' : `${ownedN}/${list.length}`;
     return `<section class="shopcat"><h3><em>${CATICO[cat]}</em>${cat}<span>${cnt}</span></h3><div class="bsgrid">${cards}</div></section>`;
   }).join('');
-  document.querySelectorAll('#shopbody [data-market]').forEach(card =>
-    card.addEventListener('click', () => buyMarket(+card.dataset.market)));
   document.querySelectorAll('#shopbody [data-shop]').forEach(card => card.addEventListener('click', () => {
     const item = SHOP.find(i => i.id === card.dataset.shop);
     if (item.pack) {                            // пак: купить и сразу открыть
@@ -3336,11 +3429,8 @@ function renderLineup() {
   }
   luPitchEl.innerHTML = dots.join('');
   if (lineupMode === 'pre') {
-    luBenchEl.innerHTML = SAVE.squad.bench.map((id, i) => {
-      const pd = pdataById(id);
-      const sell = sellableId(id) ? `<b class="lusell" data-sell="${id}">💰${sellPrice(pd)}</b>` : '';
-      return rowHtml(pd, 'b'+i, sell);
-    }).join('') || '<div class="coachrow">скамейка пуста</div>';
+    luBenchEl.innerHTML = SAVE.squad.bench.map((id, i) => rowHtml(pdataById(id), 'b'+i)).join('')
+      || '<div class="coachrow">скамейка пуста</div>';
   } else {
     const benchIds = SAVE.squad.bench.filter(id => !usedBench.has(id));
     luBenchEl.innerHTML = benchIds.length
@@ -3349,11 +3439,6 @@ function renderLineup() {
   }
   luPitchEl.querySelectorAll('[data-lu]').forEach(el => el.onclick = () => { lineupSel = el.dataset.lu; renderLineup(); });
   luBenchEl.querySelectorAll('[data-lu]').forEach(el => el.onclick = () => luBenchTap(el.dataset.lu));
-  luBenchEl.querySelectorAll('[data-sell]').forEach(el => el.onclick = e => {
-    e.stopPropagation();
-    sellPlayer(el.dataset.sell);
-    lineupSel = null; renderLineup();
-  });
 }
 function luBenchTap(key) {
   if (lineupSel == null || !lineupSel.startsWith('s')) { toast('Сначала выбери игрока в старте'); return; }
@@ -3464,14 +3549,25 @@ function startMatch() {
   setBtnMode('atk');
   for (const k in commCd) delete commCd[k];
   if (matchMode === 'train') {
-    // тренировка: на поле только твоя команда и вратарь соперника
-    for (const p of teams[1].players) if (!p.isGK) sendOff(p);
+    // тренировочная база клуба: пустые трибуны, конусы, упражнения
+    crowdMesh.visible = false;
+    trainCones.visible = trainKind !== 'match';
+    if (trainKind === 'shoot') {
+      for (const p of teams[1].players) if (!p.isGK) sendOff(p);
+    } else if (trainKind === 'drill') {
+      for (const p of teams[1].players) sendOff(p);   // вообще без соперника
+    }
     teams[1].cards = { y:0, r:0 };  // удаления технические, не карточки
     updateCardTally();
     sWhistle(1);
     kickoff(0);
-    showMsg('🎯 ТРЕНИРОВКА', 'бей, финти, отрабатывай — время стоит');
+    showMsg(`🏟 БАЗА «${myName()}»`,
+      trainKind === 'match' ? 'двусторонка: основа против дубля'
+      : trainKind === 'shoot' ? 'отработка ударов — время стоит'
+      : 'упражнения: конусы и кроссы — время стоит');
   } else if (NET.mode === 'off') {
+    crowdMesh.visible = true;
+    trainCones.visible = false;
     // торжественный выход команд из туннеля двумя колоннами
     state = 'ENTRANCE'; stateT = 5;
     allPlayers.forEach(p => {
@@ -3486,6 +3582,8 @@ function startMatch() {
       + (weather === 'rain' ? ' · ДОЖДЬ 🌧' : weather === 'snow' ? ' · СНЕГ ❄️' : ''));
     crowdLevel(0.22, 1.2);
   } else {
+    crowdMesh.visible = true;
+    trainCones.visible = false;
     sWhistle(1);
     kickoff(0);
     showMsg('НАЧАЛО МАТЧА', `СХЕМА: ${teams[0].tactic.sub} · ${teams[0].tactic.name}`);
@@ -3501,6 +3599,16 @@ function endMatch() {
   sWhistle(3); crowdLevel(0.35, 0.3);
   document.body.classList.remove('playing');
   const s0=teams[0].score, s1=teams[1].score;
+  if (matchMode === 'train') {
+    // тренировка не идёт в зачёт: ни наград, ни статистики
+    document.getElementById('endscore').textContent = `${s0} : ${s1}`;
+    document.getElementById('endscore').style.color = '#b8f335';
+    document.getElementById('endverdict').textContent = 'ТРЕНИРОВКА ОКОНЧЕНА';
+    document.getElementById('rewards').innerHTML = 'двусторонка на базе — без наград';
+    document.getElementById('ratinggrid').innerHTML = '';
+    setTimeout(()=>{ document.getElementById('endscreen').style.display='flex'; }, 700);
+    return;
+  }
   const soWin = matchCtx.soWin;
   const win = s0>s1 || soWin===0;
   const draw = s0===s1 && soWin==null;
@@ -3571,7 +3679,6 @@ function endMatch() {
     `<div class="rg${r===bestR?' best':''}"><span>${p.num}</span> ${p.name || 'ИГРОК'}${p.injured?' 🚑':''}${growth.includes(p.name)?' 📈':''}
      <b style="color:${r>=7.5?'#b8f335':r>=6?'#dbe5f5':'#ff6a4d'}">${r.toFixed(1)}</b></div>`).join('');
   if (growth.length) document.getElementById('rewards').innerHTML += `<br>📈 Прогресс: ${growth.join(', ')} +1 к силе`;
-  rollMarket();   // рынок обновляется после каждого матча
   if (NET.mode === 'host') netSend({ t:'end', s0, s1, p0, sh0: stats.shots[0], sh1: stats.shots[1] });
   if (matchCtx.trophy) startTrophy();   // финал выигран — сначала церемония с кубком
   else setTimeout(()=>{ document.getElementById('endscreen').style.display='flex'; crowdLevel(0.06,2); }, 900);
@@ -5128,6 +5235,7 @@ function drawRadar() {
   rctx.fillRect(mx(-F.HL)-2, mz(-F.GW), 2.5, mz(F.GW)-mz(-F.GW));
   rctx.fillRect(mx(F.HL)-0.5, mz(-F.GW), 2.5, mz(F.GW)-mz(-F.GW));
   for (const p of allPlayers) {
+    if (p.sentOff) continue;
     const mark = (NET.mode==='guest' && allPlayers[NET.c1]) ? allPlayers[NET.c1] : controlled;
     rctx.fillStyle = p.team===0 ? '#22d3ee' : oppRadarCol;
     rctx.beginPath(); rctx.arc(mx(p.pos.x), mz(p.pos.z), p===mark?3.4:(p.isStar?2.8:2.2), 0, 7); rctx.fill();
@@ -5313,7 +5421,7 @@ function loop(now) {
       kickoff(half===3 ? 0 : 1);
     }
   } else if (state==='PLAY') {
-    if (matchMode !== 'train') matchT += dt;   // на тренировке время стоит
+    if (matchMode !== 'train' || trainKind === 'match') matchT += dt;   // на упражнениях время стоит
     updateHUD();
     if (ball.owner) stats.poss[ball.owner.team] += dt;
     commIdleT -= dt;
@@ -5326,7 +5434,18 @@ function loop(now) {
     } else {
       updateControlled(dt);
       if (NET.mode==='host') updateControlled2(dt);
-      updateTeamAI(teams[0], dt);
+      if (matchMode === 'train' && trainKind === 'drill') {
+        // упражнения: команда наматывает круги, вратарь у ворот, ты — свободен
+        teams[0].players.forEach((p, i) => {
+          if (p === controlled) return;
+          if (p.isGK) { p.target.set(-teams[0].dir * (F.HL - 2), 0, 0); p.chase = false; return; }
+          const a = perfNow * 0.35 + i * 0.63;
+          p.target.set(Math.cos(a) * 17, 0, Math.sin(a) * 11);
+          p.chase = false;
+        });
+      } else {
+        updateTeamAI(teams[0], dt);
+      }
       updateTeamAI(teams[1], dt);
       movePlayers(dt);
       updateBall(dt);
