@@ -580,7 +580,7 @@
 <div class="screen" id="startscreen" data-screen-label="Главное меню">
   <div class="menucard">
     <h1><span>НЕОН</span>-ЛИГА</h1>
-    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V5.6</div>
+    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V5.7</div>
     <div id="playerbar">
       <span id="pb-level">УРОВЕНЬ <b>1</b></span>
       <span id="pb-coins">🪙 <b>0</b></span>
@@ -909,11 +909,19 @@ const dl2 = new THREE.DirectionalLight(0x88c0ff, 0.4);
 dl2.position.set(60, 70, -50);
 scene.add(dl2);
 
-addEventListener('resize', () => {
-  camera.aspect = innerWidth/innerHeight;
+function fitViewport() {
+  const w = innerWidth, h = innerHeight;
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-});
+  renderer.setSize(w, h);
+  // альбомная/книжная — держим управление и HUD у краёв, вешаем класс для вёрстки
+  document.body.classList.toggle('landscape', w > h);
+}
+addEventListener('resize', fitViewport);
+// поворот телефона: размеры обновляются с задержкой — переустанавливаем несколько раз
+addEventListener('orientationchange', () => { fitViewport(); setTimeout(fitViewport, 120); setTimeout(fitViewport, 350); });
+if (window.visualViewport) visualViewport.addEventListener('resize', fitViewport);
+fitViewport();
 
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 || location.search.includes('touch');
 if (IS_TOUCH) document.body.classList.add('touch');
@@ -1362,7 +1370,29 @@ function animatePlayer(p, dt, spd) {
       hipL = hipR = 0; kneeL = kneeR = -0.12;
       posY = Math.abs(Math.sin(perfNow * 7 + p.idleOff)) * 0.3;
       rotX = -0.05;
-    } else {                 // руки вверх + прыжки
+    } else if (st === 4) {   // «Сиуу»: прыжок с руками назад и разворотом
+      posY = Math.abs(Math.sin(perfNow * 4 + p.idleOff)) * 0.34;
+      shL = 1.0; shR = 1.0; szL = -0.7; szR = 0.7; elL = elR = 0.1;
+      hipL = hipR = 0.05; kneeL = kneeR = -0.1; rotX = -0.04;
+    } else if (st === 5) {   // сердечко руками над головой
+      shL = -2.4; shR = -2.4; elL = 1.4; elR = 1.4; szL = -0.55; szR = 0.55;
+      hipL = hipR = 0; kneeL = kneeR = -0.12;
+      posY = Math.abs(Math.sin(perfNow * 5 + p.idleOff)) * 0.14; rotX = -0.05;
+    } else if (st === 6) {   // палец в небо, смотрит вверх
+      shR = -2.8; elR = 0.05; szR = 0.05; shL = 0.5; elL = 0.6;
+      hipL = hipR = 0; kneeL = kneeR = -0.1; rotX = -0.12;
+    } else if (st === 7) {   // «качает младенца»
+      shL = 0.7; shR = 0.7; elL = 1.6; elR = 1.6; szL = -0.2; szR = 0.2;
+      const rock = Math.sin(perfNow * 4 + p.idleOff) * 0.25; rotZ = rock;
+      hipL = hipR = 0.05; kneeL = kneeR = -0.15;
+    } else if (st === 8) {   // дзен — садится, руки на коленях
+      hipL = hipR = 1.55; kneeL = kneeR = -1.7; posY = -0.55;
+      shL = shR = 0.6; elL = elR = 1.2; rotX = 0.05;
+    } else if (st === 9) {   // ПОДЪЁМ КУБКА над головой
+      shL = -2.7; shR = -2.7; elL = 0.05; elR = 0.05; szL = -0.28; szR = 0.28;
+      hipL = hipR = 0; kneeL = kneeR = -0.1;
+      posY = Math.abs(Math.sin(perfNow * 5 + p.idleOff)) * 0.16; rotX = -0.05;
+    } else {                 // 0: руки вверх + прыжки
       const w = Math.sin(perfNow * 11 + p.idleOff);
       shL = -2.7 + w * 0.25; shR = -2.7 - w * 0.25;
       elL = 0.18; elR = 0.18; szL = -0.35; szR = 0.35;
@@ -1433,7 +1463,7 @@ for (const team of teams) {
       sliding: false, slideHit: false, diving: false, reactT: 0,
       diveT: 0, diveDir: new THREE.Vector3(), diveSide: 1,
       celebStyle: 0, celebDir: new THREE.Vector3(1,0,0), celebYaw: 0,
-      celebCorner: new THREE.Vector3(),
+      celebCorner: new THREE.Vector3(), celebRun: false, celebSig: 0,
       feintT: 0, feintCd: 0, feintDir: new THREE.Vector3(1,0,0), feintLean: 1,
       headT: 0, throwing: false,
       yellow: 0, sentOff: false, homeYaw: 0,
@@ -1612,7 +1642,7 @@ const trophy = (() => {
   scene.add(g);
   return { g, gold };
 })();
-let trophyT = 0;
+let trophyT = 0, trophyLiftT = 0;
 
 /* ---- погода: дождь скользит, снег тормозит ---- */
 let weather = null;
@@ -1652,18 +1682,28 @@ function updateWeather(dt) {
 function startTrophy() {
   const E = SAVE.euro, C = E ? EURO[E.comp] : EURO.ucl;
   trophy.gold.color.setHex(C.trophyCol); trophy.gold.emissive.setHex(C.trophyCol);
-  trophy.g.position.set(0, 0, 4); trophy.g.visible = true;
-  // команда полукругом у кубка, все празднуют
+  trophy.g.scale.set(0.95, 0.95, 0.95);
+  trophy.g.visible = true;
+  // капитан/звезда поднимает кубок, остальные ликуют вокруг лицом к нему
+  const lifter = teams[0].players.find(p => p.isStar && !p.sentOff) || teams[0].players[9];
+  matchCtx.lifter = lifter;
   teams[0].players.forEach((p, i) => {
     if (p.sentOff) return;
-    const a = -Math.PI/2 + (i/10) * Math.PI;
-    p.pos.set(Math.cos(a)*6, 0, 4 + Math.sin(a)*6*0.6 + 3);
-    p.vel.set(0,0,0);
-    p.yaw = Math.atan2(-p.pos.x, 4 - p.pos.z);
-    p.celebT = 7; p.celebStyle = i % 2 ? 0 : 3;
+    p.vel.set(0,0,0); p.celebT = 8; p.celebRun = false; p.stunT = 0; p.lungeT = 0;
+    if (p === lifter) {
+      p.pos.set(0, 0, 6); p.yaw = 0;                      // лицом к камере/трибуне
+      p.celebStyle = 9;                                    // поза подъёма кубка
+    } else {
+      const a = -Math.PI/2 + ((i + 1) / 12) * Math.PI;
+      p.pos.set(Math.cos(a)*7.5, 0, 9 + Math.sin(a)*3.2);
+      p.yaw = Math.atan2(-p.pos.x, 6 - p.pos.z);
+      p.celebStyle = celebFor(p.name);
+    }
+    p.target.copy(p.pos);                                  // стоят на месте, не дрейфуют
   });
+  trophyLiftT = 0;
   ball.owner = null; ball.pos.set(0, BALL_R, -8); ball.vel.set(0,0,0);
-  state = 'TROPHY'; stateT = 6.5; trophyT = 0;
+  state = 'TROPHY'; stateT = 7; trophyT = 0;
   showMsg('🏆 ' + C.name, `${myName()} — ПОБЕДИТЕЛЬ!`);
   commSay('trophy', null, 1);
   sCheer(); crowdPulse = 1;
@@ -2134,15 +2174,38 @@ const PLAYER_LOOKS = {
   // Атлетико/прочие Ла Лига
   'ГРИЗМАНН':[SK.l,HR.dbr,0],'ОБЛАК':[SK.lt,HR.br,0],'МОРАТА':[SK.l,HR.dbr,0],'ДЕ ПАУЛЬ':[SK.l,HR.dbr,1],
   'ИСКО':[SK.l,HR.dbr,0],'РАМОС':[SK.l,HR.dbr,1],
+  // ещё Бундеслига
+  'УЛЬРАЙХ':[SK.lt,HR.br,3],'ПАВЛОВИЧ':[SK.l,HR.dbr,0],'ГЕРРЕЙРО':[SK.l,HR.dbr,0],'КОБЕЛЬ':[SK.lt,HR.dbr,0],
+  'ХУММЕЛЬС':[SK.lt,HR.br,1],'ШЛОТТЕРБЕК':[SK.lt,HR.dbr,0],'РАУМ':[SK.lt,HR.dbr,0],'ЗАБИТЦЕР':[SK.lt,HR.dbr,0],
+  'ГРАДЕЦКИ':[SK.lt,HR.br,0],'ТАХ':[SK.dk,HR.blk,0],'ГРИМАЛЬДО':[SK.l,HR.dbr,0],'ФРИМПОНГ':[SK.br,HR.blk,2],
+  'ДЖАКА':[SK.l,HR.dbr,0],'ШИК':[SK.lt,HR.br,0],'ГУЛАЧИ':[SK.lt,HR.br,0],'ОРБАН':[SK.l,HR.dbr,0],
+  'ШЕШКО':[SK.lt,HR.dbr,0],'ГИРАССИ':[SK.dk,HR.blk,0],'УНДАВ':[SK.l,HR.dbr,0],'ТРАПП':[SK.lt,HR.br,0],
+  'ГЁТЦЕ':[SK.l,HR.dbr,0],'ЭКИТИКЕ':[SK.dk,HR.blk,0],
+  // ещё Серия А / Ла Лига
+  'ЗОММЕР':[SK.lt,HR.br,0],'ДИМАРКО':[SK.l,HR.dbr,0],'МХИТАРЯН':[SK.l,HR.dbr,0],'ДУМФРИС':[SK.br,HR.blk,5],
+  'ТОМОРИ':[SK.dk,HR.blk,0],'МЕРЕТ':[SK.lt,HR.br,0],'ЛОБОТКА':[SK.lt,HR.dbr,0],'АНГИССА':[SK.dk,HR.blk,0],
+  'ТЕР ШТЕГЕН ':[SK.lt,HR.br,0],'ПЕНЬЯ':[SK.l,HR.dbr,0],'КРИСТЕНСЕН':[SK.lt,HR.bl,0],'ФЕЛИКС':[SK.l,HR.dbr,0],
 };
+const nameHash = name => { let h=0; for (let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))>>>0; return h; };
 function lookFor(name) {
   const L = PLAYER_LOOKS[name];
   if (L) return { skin:L[0], hair:L[1], style:L[2] };
-  let h = 0; for (let i=0;i<name.length;i++) h = (h*31 + name.charCodeAt(i)) >>> 0;
+  const h = nameHash(name);
   const skins = [SK.lt,SK.l,SK.l,SK.m,SK.m,SK.t,SK.br,SK.dk];
   const hairs = [HR.blk,HR.dbr,HR.dbr,HR.br,HR.lbr,HR.bl];
   const styles = [0,0,0,0,1,3,5];
   return { skin:skins[h%skins.length], hair:hairs[(h>>3)%hairs.length], style:styles[(h>>6)%styles.length] };
+}
+/* фирменное празднование гола у каждого игрока (0-8) */
+const CELEBS = {
+  'ХОЛАНН':8,'КЕЙН':6,'ВИНИСИУС':2,'САЛАХ':6,'ГРИЗМАНН':7,'МУСИАЛА':4,'БЕЛЛИНГЕМ':5,'ЛАУТАРО':1,
+  'ОСИМХЕН':3,'ЯМАЛЬ':4,'ДЕ БРЁЙНЕ':0,'ФОДЕН':7,'САНЕ':2,'ГНАБРИ':3,'ЛЕВАНДОВСКИ':6,'НУНЬЕС':1,
+  'ЖИРУ':0,'ДИБАЛА':5,'ЛЕАН':4,'РЭШФОРД':6,'САКА':2,'СОН':4,'КВАРАЦХЕЛИЯ':1,'МАРМУШ':3,
+  'ГИРАССИ':5,'ОПЕНДА':2,'ВИРЦ':4,'БОНИФАСЕ':7,'ФЮЛЛКРУГ':0,'АДЕЙЕМИ':2,
+};
+function celebFor(name) {
+  if (name && CELEBS[name] != null) return CELEBS[name];
+  return [0,1,2,3,4,5,6,7][nameHash(name||'x') % 8];
 }
 const CUP_FINAL_DIFF = { cpuSpd:8.2, press:3, passErr:0.05, shotErr:0.06, aggro:0.6 };
 const powDiff = pow => pow >= 3 ? CUP_FINAL_DIFF : DIFFS[pow];   // сила клуба → уровень ИИ
@@ -4990,17 +5053,13 @@ function movePlayers(dt) {
       p.feintT -= dt;
       dx = p.feintDir.x; dz = p.feintDir.z;
       maxSpd = p.baseSpd * 2.1;
-    } else if (p.celebT>0 && (p.celebStyle===1 || p.celebStyle===2)) {
-      // автор гола мчит к угловому флажку; добежал — встаёт и празднует
+    } else if (p.celebT>0 && p.celebRun) {
+      // автор гола мчит к угловому флажку; добежал — включает СВОЮ подпись
       const cd = Math.hypot(p.celebCorner.x - p.pos.x, p.celebCorner.z - p.pos.z);
       if (cd < 2.2) {
         dx = dz = 0; maxSpd = 0;
-        if (p.celebStyle === 2) p.celebStyle = 3;   // у флажка — кулак в небо
-      } else if (p.celebStyle===1) {         // knee slide toward the flag
-        p.celebDir.set(p.celebCorner.x - p.pos.x, 0, p.celebCorner.z - p.pos.z).normalize();
-        dx = p.celebDir.x; dz = p.celebDir.z;
-        maxSpd = 8 * Math.min(1, p.celebT/1.7 + 0.35);
-      } else {                               // airplane: weaving run to the flag
+        p.celebRun = false; p.celebStyle = p.celebSig;   // фирменное празднование у флажка
+      } else {                               // «самолётик» с вилянием к флажку
         const base = Math.atan2(p.celebCorner.x - p.pos.x, p.celebCorner.z - p.pos.z);
         const weave = Math.sin(perfNow*5 + p.idleOff) * 0.5;
         dx = Math.sin(base + weave); dz = Math.cos(base + weave);
@@ -5388,13 +5447,15 @@ function awardGoal(scoringTeam) {
     commSay('starGoal', `${teams[0].score}:${teams[1].score}`, 1);
   else commSay(scoringTeam.id===0 ? 'goal0' : 'goal1', `${teams[0].score}:${teams[1].score}`, 1);
   celebCam = null;
+  const goalScorer = (scorer && scorer.team === scoringTeam.id) ? scorer
+    : scoringTeam.players.find(p => p.isStar && !p.sentOff) || scoringTeam.players[9];
   for (const p of scoringTeam.players) {
     if (p.sentOff) continue;
-    p.celebT = 2.5;
-    p.celebStyle = Math.random() < 0.5 ? 0 : 3;              // партнёры: руки вверх или кулак в небо
-    if (p === scorer || (scorer?.team !== scoringTeam.id && p.isStar)) {
-      p.celebStyle = Math.random() < 0.5 ? 1 : 2;            // автор гола: колени или самолётик
-      // мчит к угловому флажку у ворот, где забил
+    p.celebT = 2.5; p.celebRun = false;
+    p.celebStyle = celebFor(p.name);                        // партнёры празднуют по-своему на месте
+    if (p === goalScorer) {
+      p.celebSig = celebFor(p.name);                        // своё фирменное — включит у флажка
+      p.celebStyle = 2; p.celebRun = true;                  // сначала «самолётик» к флажку
       const cs = Math.sign(ball.pos.x) || scoringTeam.dir;
       p.celebCorner.set(cs*(F.HL-1.2), 0, (p.pos.z >= 0 ? 1 : -1)*(F.HW-1.2));
       p.celebDir.copy(p.celebCorner).sub(p.pos).setY(0).normalize();
@@ -5548,10 +5609,11 @@ function updateCamera(dt) {
     px = 9; py = 2.3; pz = -22 + k * 26;
     lx = 0; ly = 1.25; lz = pz - 2;
   } else if (state==='TROPHY') {
-    // церемония: облёт вокруг кубка и команды
-    const t = perfNow * 0.35;
-    px = Math.cos(t) * 15; py = 4.5; pz = 4 + Math.sin(t) * 15;
-    lx = 0; ly = 1.6; lz = 4;
+    // церемония: медленный облёт вокруг поднимающего кубок
+    const lf = matchCtx.lifter, cx = lf ? lf.pos.x : 0, cz = lf ? lf.pos.z : 6;
+    const t = perfNow * 0.3;
+    px = cx + Math.sin(t) * 9; py = 3.4; pz = cz + Math.cos(t) * 9 + 3;
+    lx = cx; ly = 2.6; lz = cz;                 // смотрим на поднятый кубок
   } else if (state==='VAR' && RP.active) {
     // broadcast replay: low sideline camera near the incident, slow dolly
     const sp = RP.spot;
@@ -5753,7 +5815,13 @@ function loop(now) {
     }
   } else if (state==='TROPHY') {
     stateT -= dt; trophyT += dt;
-    trophy.g.rotation.y += dt * 0.8;
+    trophyLiftT = Math.min(1, trophyLiftT + dt*0.6);
+    const lf = matchCtx.lifter;
+    if (lf) {   // кубок поднимается над головой капитана и покачивается
+      const lift = trophyLiftT, bob = Math.sin(perfNow*3.5) * 0.1 * lift;
+      trophy.g.position.set(lf.pos.x, 2.15 + lift*0.95 + bob, lf.pos.z + 0.18);
+      trophy.g.rotation.y = Math.sin(perfNow*1.2) * 0.25;   // лёгкое покачивание, не бесконечное вращение
+    }
     movePlayers(dt);
     if (trophyT > 1.4) { trophyT = 0; spawnFireworks((Math.random()-0.5)*30, (Math.random()-0.5)*20); }
     if (stateT <= 0) {
