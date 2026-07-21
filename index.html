@@ -580,7 +580,7 @@
 <div class="screen" id="startscreen" data-screen-label="Главное меню">
   <div class="menucard">
     <h1><span>НЕОН</span>-ЛИГА</h1>
-    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V5.8</div>
+    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V5.9</div>
     <div id="playerbar">
       <span id="pb-level">УРОВЕНЬ <b>1</b></span>
       <span id="pb-coins">🪙 <b>0</b></span>
@@ -624,6 +624,7 @@
     <button id="playbtn">ИГРАТЬ</button>
     <div class="btnrow" style="margin-top:14px">
       <button class="mbtn small" id="onlinebtn">🌐 ОНЛАЙН 1×1</button>
+      <button class="mbtn small" id="careerbtn">👔 КАРЬЕРА</button>
       <button class="mbtn small" id="leaguebtn">⚽ ЧЕМПИОНАТ</button>
       <button class="mbtn small" id="cupbtn">🏆 ЕВРОКУБКИ</button>
       <button class="mbtn small" id="trainmodebtn">🎯 ТРЕНИРОВКА</button>
@@ -670,7 +671,13 @@
 <div class="screen" id="pausescreen" data-screen-label="Пауза">
   <div class="menucard">
     <div class="endtitle">ПАУЗА</div>
-    <div class="btnrow col">
+    <div class="optlabel">МЕНТАЛИТЕТ КОМАНДЫ</div>
+    <div class="optrow" id="mentrow">
+      <div class="opt" data-m="0">🚌 АВТОБУС</div>
+      <div class="opt sel" data-m="1">⚖️ БАЛАНС</div>
+      <div class="opt" data-m="2">⚔️ ШТУРМ</div>
+    </div>
+    <div class="btnrow col" style="margin-top:12px">
       <button class="mbtn primary" id="resumebtn">ПРОДОЛЖИТЬ</button>
       <button class="mbtn" id="subsbtn">🔁 ЗАМЕНЫ (<span id="subsleft2">3</span>)</button>
       <button class="mbtn" id="restartbtn">ЗАНОВО</button>
@@ -765,6 +772,18 @@
     <div id="tw-list" class="lulist"></div>
     <div class="lu-sec">ПРОДАЖА ИЗ МОЕЙ КОМАНДЫ (скамейка)</div>
     <div id="tw-sell" class="lulist"></div>
+    <div class="btnrow backrow"><button class="mbtn" data-back>НАЗАД</button></div>
+  </div>
+</div>
+
+<div class="screen" id="careerscreen" style="display:none" data-screen-label="Карьера тренера">
+  <div class="menucard lineupcard">
+    <div class="endtitle">👔 КАРЬЕРА ТРЕНЕРА</div>
+    <div class="coachrow" id="career-info"></div>
+    <div class="lu-sec">ЦЕЛЬ СЕЗОНА ОТ РУКОВОДСТВА</div>
+    <div id="career-goal" class="lulist"></div>
+    <div class="lu-sec" id="career-offers-sec">ПРЕДЛОЖЕНИЯ ОТ КЛУБОВ</div>
+    <div id="career-offers" class="lulist"></div>
     <div class="btnrow backrow"><button class="mbtn" data-back>НАЗАД</button></div>
   </div>
 </div>
@@ -2420,6 +2439,7 @@ const DEFAULT_SAVE = {
   myClub:null, euroQual:null, euro:null,
   ovrBoost:{}, market:null, trophies:[], history:[], scorers:{},
   stadium:{ tier:0, screen:0, lights:0, banner:0 }, youth:null,
+  career:{ rep:30, seasons:0, boardGoal:null, offers:[], mentality:1 },
   cup:{ round:0, done:false },
   best:[],
 };
@@ -2439,6 +2459,7 @@ SAVE.history = SAVE.history || [];
 SAVE.scorers = SAVE.scorers || {};
 SAVE.stadium = Object.assign({ tier:0, screen:0, lights:0, banner:0 }, SAVE.stadium);
 SAVE.youth = SAVE.youth || null;
+SAVE.career = Object.assign({ rep:30, seasons:0, boardGoal:null, offers:[], mentality:1 }, SAVE.career);
 // состав: миграция старых сейвов + купленные легионеры всегда в обойме
 if (!SAVE.squad || !Array.isArray(SAVE.squad.start) || SAVE.squad.start.length !== 11) {
   SAVE.squad = { start: ROSTER.slice(0, 11).map(r => r.id), bench: ROSTER.slice(11).map(r => r.id) };
@@ -2743,7 +2764,7 @@ function setOpponent(cfg) {
 }
 
 /* --- menu screens --- */
-const SCREEN_IDS = ['profilescreen','shopscreen','cupscreen','settingsscreen','onlinescreen','leaguescreen','transferscreen','stadiumscreen','academyscreen'];
+const SCREEN_IDS = ['profilescreen','shopscreen','cupscreen','settingsscreen','onlinescreen','leaguescreen','transferscreen','stadiumscreen','academyscreen','careerscreen'];
 function refreshPlayerbar() {
   document.getElementById('pb-level').innerHTML = `УРОВЕНЬ <b>${levelOf(SAVE.xp)}</b>`;
   document.getElementById('pb-coins').innerHTML = `🪙 <b>${SAVE.coins}</b>`;
@@ -2760,6 +2781,7 @@ function showScreen(id) {
   if (id === 'transferscreen') renderTransfers();
   if (id === 'stadiumscreen') renderStadium();
   if (id === 'academyscreen') renderAcademy();
+  if (id === 'careerscreen') renderCareer();
 }
 document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => {
   for (const s of SCREEN_IDS) document.getElementById(s).style.display = 'none';
@@ -2773,6 +2795,30 @@ document.getElementById('leaguebtn').addEventListener('click', () => showScreen(
 document.getElementById('transferbtn').addEventListener('click', () => showScreen('transferscreen'));
 document.getElementById('stadiumbtn').addEventListener('click', () => showScreen('stadiumscreen'));
 document.getElementById('academybtn').addEventListener('click', () => showScreen('academyscreen'));
+document.getElementById('careerbtn').addEventListener('click', () => showScreen('careerscreen'));
+
+/* ---- карьера тренера ---- */
+function renderCareer() {
+  const C = SAVE.career;
+  if (!C.boardGoal) C.boardGoal = boardGoalFor();
+  document.getElementById('career-info').innerHTML =
+    `Тренер <b>${myName()}</b> · сезонов: <b>${C.seasons}</b><br>Репутация: <b style="color:#ffd21a">${repStars(C.rep)}</b> ${C.rep} · <b>${repTitle(C.rep)}</b>`;
+  const g = C.boardGoal;
+  document.getElementById('career-goal').innerHTML =
+    `<div class="lurow"><b class="lunum">🎯</b><span class="luname">${g.text}</span></div>`;
+  const offers = C.offers || [];
+  document.getElementById('career-offers-sec').style.display = offers.length ? '' : 'none';
+  document.getElementById('career-offers').innerHTML = offers.length
+    ? offers.map(id => { const c = clubById(id); return c
+        ? `<div class="lurow"><i class="ltdot" style="background:#${c.col.toString(16).padStart(6,'0')}"></i>
+            <span class="luname">${c.name} <i class="lupos">${'⭐'.repeat(c.pow)} ${LEAGUES[c.lg]}</i></span>
+            <b class="lusell" data-offer="${id}">ВОЗГЛАВИТЬ</b></div>` : ''; }).join('')
+    : '';
+  document.querySelectorAll('#career-offers [data-offer]').forEach(el => el.onclick = () => {
+    acceptOffer(el.dataset.offer);
+    renderCareer();
+  });
+}
 
 /* ---- стадион ---- */
 const STADIUM_UP = [
@@ -3124,7 +3170,60 @@ function newSeason() {
   const t = { neon: { pts:0,w:0,d:0,l:0,gf:0,ga:0 } };
   for (const c of myLeagueClubs()) t[c.id] = { pts:0,w:0,d:0,l:0,gf:0,ga:0 };
   SAVE.league = { day: 0, table: t, done: false };
+  SAVE.career.boardGoal = boardGoalFor();   // руководство ставит цель на сезон
   persist();
+}
+/* ---- КАРЬЕРА ТРЕНЕРА: цели руководства, репутация, предложения клубов ---- */
+const repStars = r => '★'.repeat(Math.max(1, Math.min(5, Math.round(r/20)))) + '☆'.repeat(5 - Math.max(1, Math.min(5, Math.round(r/20))));
+const repTitle = r => r>=85?'ЛЕГЕНДА':r>=65?'ТОП-ТРЕНЕР':r>=45?'ИЗВЕСТНЫЙ':r>=25?'ПЕРСПЕКТИВНЫЙ':'НОВИЧОК';
+function boardGoalFor() {
+  const pow = (myClub()||{pow:1}).pow, n = myLeagueClubs().length + 1;
+  if (pow >= 3) return { place:1,  text:'ВЫИГРАТЬ ЧЕМПИОНАТ' };
+  if (pow === 2) return { place:4,  text:'ПОПАСТЬ В ТОП-4 (ЛИГА ЧЕМПИОНОВ)' };
+  return { place: Math.max(6, Math.round(n*0.55)), text:`НЕ НИЖЕ ${Math.max(6, Math.round(n*0.55))}-го МЕСТА` };
+}
+function careerAfterSeason(place) {
+  const C = SAVE.career, goal = C.boardGoal || boardGoalFor();
+  C.seasons++;
+  const n = myLeagueClubs().length + 1;
+  let repDelta, verdict, sacked = false;
+  if (place <= goal.place) {
+    repDelta = (place === 1 && goal.place > 1) ? 16 : 9;   // превзошёл ожидания — больше
+    verdict = place === 1 ? 'ЧЕМПИОНЫ! Руководство в восторге.' : 'Цель выполнена — совет доволен.';
+  } else if (place <= goal.place + 3) {
+    repDelta = -4; verdict = 'Цель не достигнута. Совет недоволен.';
+  } else {
+    repDelta = -14; verdict = 'Полный провал сезона.';
+    sacked = place > n - 3;   // вылет из зоны — увольнение
+  }
+  C.rep = Math.max(0, Math.min(100, C.rep + repDelta));
+  // предложения от клубов
+  C.offers = [];
+  if (sacked) {
+    // уволен — предлагают клубы послабее/равные
+    C.offers = CLUBS.filter(c => c.id !== SAVE.myClub && c.pow <= (myClub()||{pow:1}).pow)
+      .sort(() => Math.random()-0.5).slice(0, 3).map(c => c.id);
+  } else if (C.rep >= 45 && repDelta > 0) {
+    // успех — зовут клубы посильнее
+    const bigger = CLUBS.filter(c => c.id !== SAVE.myClub && c.pow >= (myClub()||{pow:1}).pow && c.pow >= 2)
+      .sort((a,b) => b.pow - a.pow || Math.random()-0.5);
+    C.offers = bigger.slice(0, C.rep >= 65 ? 3 : 2).map(c => c.id);
+  }
+  persist();
+  return { repDelta, verdict, sacked, goal, offers: C.offers };
+}
+function acceptOffer(cid) {
+  const club = clubById(cid); if (!club) return;
+  SAVE.myClub = cid;
+  SAVE.league = null; SAVE.euro = null; SAVE.euroQual = null;
+  const sq = squadForClub(cid);
+  const kept = SAVE.squad ? [...SAVE.squad.start, ...SAVE.squad.bench].filter(id => id.startsWith('pl_') || id.startsWith('cp_') || id.startsWith('yt_')) : [];
+  if (sq) SAVE.squad = { start: sq.start, bench: sq.bench.concat(kept) };
+  SAVE.career.offers = [];
+  SAVE.career.boardGoal = null;
+  persist();
+  applyClub();
+  toast(`✍️ Ты — тренер ${club.name}! Новый вызов.`);
 }
 function recResult(t, idA, idB, gA, gB) {
   const a = t[idA], b = t[idB];
@@ -3154,9 +3253,11 @@ function renderLeague() {
   const rows = leagueStandings();
   const place = rows.findIndex(r => r.id === 'neon') + 1;
   document.querySelector('#leaguescreen .endtitle').textContent = '⚽ ' + (LEAGUES[(myClub()||CLUBS[0]).lg] || 'ЧЕМПИОНАТ');
-  document.getElementById('leagueinfo').innerHTML = L.done
+  const goal = SAVE.career.boardGoal || boardGoalFor();
+  document.getElementById('leagueinfo').innerHTML = (L.done
     ? `Сезон окончен! Место: <b>${place}</b> · ${place<=4?'путёвка в ЛИГУ ЧЕМПИОНОВ':place===5?'путёвка в ЛИГУ ЕВРОПЫ':'путёвка в ЛИГУ КОНФЕРЕНЦИЙ'} 🎫`
-    : `Тур <b>${L.day + 1}</b> из ${opps.length} · соперник: <b>${opps[L.day].name}</b> · ты на <b>${place}-м</b> месте`;
+    : `Тур <b>${L.day + 1}</b> из ${opps.length} · соперник: <b>${opps[L.day].name}</b> · ты на <b>${place}-м</b> месте`)
+    + `<br>🎯 Цель совета: <b>${goal.text}</b>`;
   document.getElementById('leagueplay').style.display = L.done ? 'none' : '';
   document.getElementById('leaguetable').innerHTML =
     `<div class="ltrow hdr"><span>#</span><span class="ltname">КЛУБ</span><span>В</span><span>Н</span><span>П</span><span>МЯЧИ</span><span>О</span></div>`
@@ -3190,9 +3291,11 @@ function leagueAfterMatch(s0, s1) {
     SAVE.history.push({ lg: (myClub()||{}).lg, club: myName(), place });
     if (place === 1) SAVE.trophies.push({ t:'lg', name: LEAGUES[(myClub()||{}).lg] || 'ЧЕМПИОНАТ' });
     growYouth();   // за сезон молодёжь подросла
+    const car = careerAfterSeason(place);   // репутация, вердикт совета, предложения
     msg = (place === 1 ? `🏆 ЧЕМПИОН! +${prize} 🪙 · ` : `Сезон: ${place}-е место, +${prize} 🪙 · `)
-        + `квалификация: ${EURO[SAVE.euroQual].name}`;
-    if (place === 1) unlockAch('champion');
+        + `${car.verdict} Репутация ${car.repDelta>=0?'+':''}${car.repDelta}`
+        + (car.sacked ? ' · ⚠️ ТЫ УВОЛЕН — выбери клуб в КАРЬЕРЕ'
+           : car.offers.length ? ' · 📨 Есть предложения (см. КАРЬЕРА)' : '');
   }
   persist();
   return msg;
@@ -3351,7 +3454,9 @@ function euroAfterMatch(s0, s1, win, draw, soWinner) {
         if (advanced) {
           SAVE.coins += C.prize; unlockAch('champion');
           SAVE.trophies.push({ t: E.comp, name: C.name });
-          msg = `🏆 ${C.name} НАША! +${C.prize} 🪙`;
+          SAVE.career.rep = Math.min(100, SAVE.career.rep + (E.comp==='ucl'?18:E.comp==='uel'?11:7));
+          persist();
+          msg = `🏆 ${C.name} НАША! +${C.prize} 🪙 · репутация растёт!`;
         } else msg = 'Поражение в финале...';
       } else if (!advanced) {
         E.done = true; msg = `Вылет (${aggStr})`;
@@ -4022,6 +4127,7 @@ document.getElementById('packok').addEventListener('click', () => {
 function startMatch() {
   matchCtx = { maxDeficit: 0, soWin: null, soScore: null };
   matchCtx.derby = matchMode !== 'train' ? derbyName(SAVE.myClub, curOppId) : null;
+  matchCtx.mentality = SAVE.career.mentality ?? 1;
   applyStadium();
   podium.g.visible = false; trophy.g.visible = false;
   for (const p of allPlayers) if (p.limbs.medal) p.limbs.medal.visible = false;
@@ -4220,6 +4326,9 @@ function togglePause() {
     prevState = state; state='PAUSED';
     document.getElementById('pausescreen').style.display='flex';
     document.body.classList.remove('playing');
+    // подсветить текущий менталитет
+    const mn = matchCtx.mentality ?? 1;
+    for (const o of document.getElementById('mentrow').children) o.classList.toggle('sel', +o.dataset.m === mn);
     try { speechSynthesis.cancel(); } catch(e) {}
   }
 }
@@ -4253,6 +4362,13 @@ for (const row of ['diffrow','lenrow','tacrow','opprow']) {
     else HALF_LEN = +b.dataset.l;
   });
 }
+document.getElementById('mentrow').addEventListener('click', e => {
+  const b = e.target.closest('.opt'); if (!b) return;
+  for (const o of e.currentTarget.children) o.classList.remove('sel');
+  b.classList.add('sel');
+  const m = +b.dataset.m;
+  matchCtx.mentality = m; SAVE.career.mentality = m; persist();   // меняется по ходу матча
+});
 const OPPS = { magma: { name:'МАГМА', col:0xff4a26, shorts:0x2c0b06, tac:null } };
 for (const c of CLUBS) OPPS[c.id] = { name:c.name, col:c.col, shorts:c.shorts, tac:c.tac };
 let menuOppId = 'magma';
@@ -4558,13 +4674,15 @@ function updateTeamAI(team, dt) {
   const ballFuture = V3.copy(ball.pos).addScaledVector(ball.vel, 0.25);
   // smarter CPU: pushes forward and presses harder when trailing in the 2nd half
   const cpuRally = !team.human && half===2 && teams[1].score < teams[0].score;
-  const push = hasBall ? (cpuRally ? tac.withBall+3 : tac.withBall) : tac.offBall;
+  // живой менталитет моей команды: 0 автобус · 1 баланс · 2 штурм
+  const ment = team.id === 0 ? ((matchCtx.mentality ?? 1) - 1) : 0;   // -1 / 0 / +1
+  const push = (hasBall ? (cpuRally ? tac.withBall+3 : tac.withBall) : tac.offBall) + ment*4;
 
   for (const p of team.players) p.chase = false;
   const sorted = team.players.filter(p=>!p.isGK && !p.sentOff).sort((a,b)=>a.pos.distanceTo(ballFuture)-b.pos.distanceTo(ballFuture));
   let nChase = 0;
   if (!hasBall) nChase = ball.owner ? (team.human ? ((team.id===0?containHeld:NET.remoteInput.contain)?3:2) : DIFF.press) : 2;
-  if (!hasBall && ball.owner) nChase = THREE.MathUtils.clamp(nChase + tac.pressBonus, 1, 5);
+  if (!hasBall && ball.owner) nChase = THREE.MathUtils.clamp(nChase + tac.pressBonus + ment, 1, 5);
   if (cpuRally && !hasBall) nChase = Math.min(4, nChase+1);
   for (let i=0;i<nChase && i<sorted.length;i++) sorted[i].chase = true;
 
