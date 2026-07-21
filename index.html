@@ -580,7 +580,7 @@
 <div class="screen" id="startscreen" data-screen-label="Главное меню">
   <div class="menucard">
     <h1><span>НЕОН</span>-ЛИГА</h1>
-    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V5.9</div>
+    <div class="tagline">НОЧНОЙ ФУТБОЛ • 11×11 • V6.0</div>
     <div id="playerbar">
       <span id="pb-level">УРОВЕНЬ <b>1</b></span>
       <span id="pb-coins">🪙 <b>0</b></span>
@@ -625,6 +625,7 @@
     <div class="btnrow" style="margin-top:14px">
       <button class="mbtn small" id="onlinebtn">🌐 ОНЛАЙН 1×1</button>
       <button class="mbtn small" id="careerbtn">👔 КАРЬЕРА</button>
+      <button class="mbtn small" id="pcareerbtn">⭐ КАРЬЕРА ИГРОКА</button>
       <button class="mbtn small" id="leaguebtn">⚽ ЧЕМПИОНАТ</button>
       <button class="mbtn small" id="cupbtn">🏆 ЕВРОКУБКИ</button>
       <button class="mbtn small" id="trainmodebtn">🎯 ТРЕНИРОВКА</button>
@@ -772,6 +773,36 @@
     <div id="tw-list" class="lulist"></div>
     <div class="lu-sec">ПРОДАЖА ИЗ МОЕЙ КОМАНДЫ (скамейка)</div>
     <div id="tw-sell" class="lulist"></div>
+    <div class="btnrow backrow"><button class="mbtn" data-back>НАЗАД</button></div>
+  </div>
+</div>
+
+<div class="screen" id="pcareerscreen" style="display:none" data-screen-label="Карьера игрока">
+  <div class="menucard lineupcard">
+    <div class="endtitle">⭐ КАРЬЕРА ИГРОКА</div>
+    <div id="pc-create">
+      <div class="coachrow">Создай футболиста и проживи его карьеру — играешь только за него</div>
+      <div class="lu-sec">ИМЯ</div>
+      <input id="pc-name" maxlength="12" placeholder="ТВОЁ ИМЯ" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid #2a3a5a;background:#141c30;color:#eaf1ff;font-size:15px;font-weight:700;letter-spacing:.06em;text-align:center">
+      <div class="lu-sec">ПОЗИЦИЯ</div>
+      <div class="optrow" id="pc-posrow">
+        <div class="opt" data-p="GK">ВРАТАРЬ</div>
+        <div class="opt" data-p="DF">ЗАЩ.</div>
+        <div class="opt sel" data-p="MF">ПОЛУЗ.</div>
+        <div class="opt" data-p="FW">НАПАД.</div>
+      </div>
+      <div class="lu-sec">СТАРТОВЫЙ КЛУБ</div>
+      <div class="optrow scrollrow" id="pc-clubrow"></div>
+      <div class="btnrow"><button class="mbtn primary" id="pc-createbtn">СОЗДАТЬ ИГРОКА</button></div>
+    </div>
+    <div id="pc-view" style="display:none">
+      <div class="coachrow" id="pc-info"></div>
+      <div id="pc-stats" class="lulist"></div>
+      <div class="btnrow">
+        <button class="mbtn primary" id="pc-playbtn">▶ СЫГРАТЬ МАТЧ</button>
+        <button class="mbtn" id="pc-resetbtn">НОВЫЙ ИГРОК</button>
+      </div>
+    </div>
     <div class="btnrow backrow"><button class="mbtn" data-back>НАЗАД</button></div>
   </div>
 </div>
@@ -2364,7 +2395,8 @@ function celebFor(name) {
 const CUP_FINAL_DIFF = { cpuSpd:8.2, press:3, passErr:0.05, shotErr:0.06, aggro:0.6 };
 const powDiff = pow => pow >= 3 ? CUP_FINAL_DIFF : DIFFS[pow];   // сила клуба → уровень ИИ
 const MAGMA_CFG = { name:'МАГМА', col:0xff4a26, shorts:0x2c0b06 };
-const myClub = () => clubById(SAVE.myClub);
+const myClub = () => clubById(
+  (matchMode === 'pcareer' && SAVE.pcareer) ? SAVE.pcareer.club : SAVE.myClub);
 const myName = () => (myClub() || { name:'НЕОН' }).name;
 const EURO = {
   ucl:  { name:'ЛИГА ЧЕМПИОНОВ',   ico:'🏆', prize:1000, trophyCol:0xe8ecf5 },
@@ -2440,6 +2472,7 @@ const DEFAULT_SAVE = {
   ovrBoost:{}, market:null, trophies:[], history:[], scorers:{},
   stadium:{ tier:0, screen:0, lights:0, banner:0 }, youth:null,
   career:{ rep:30, seasons:0, boardGoal:null, offers:[], mentality:1 },
+  pcareer:null,
   cup:{ round:0, done:false },
   best:[],
 };
@@ -2460,6 +2493,7 @@ SAVE.scorers = SAVE.scorers || {};
 SAVE.stadium = Object.assign({ tier:0, screen:0, lights:0, banner:0 }, SAVE.stadium);
 SAVE.youth = SAVE.youth || null;
 SAVE.career = Object.assign({ rep:30, seasons:0, boardGoal:null, offers:[], mentality:1 }, SAVE.career);
+SAVE.pcareer = SAVE.pcareer || null;
 // состав: миграция старых сейвов + купленные легионеры всегда в обойме
 if (!SAVE.squad || !Array.isArray(SAVE.squad.start) || SAVE.squad.start.length !== 11) {
   SAVE.squad = { start: ROSTER.slice(0, 11).map(r => r.id), bench: ROSTER.slice(11).map(r => r.id) };
@@ -2764,7 +2798,7 @@ function setOpponent(cfg) {
 }
 
 /* --- menu screens --- */
-const SCREEN_IDS = ['profilescreen','shopscreen','cupscreen','settingsscreen','onlinescreen','leaguescreen','transferscreen','stadiumscreen','academyscreen','careerscreen'];
+const SCREEN_IDS = ['profilescreen','shopscreen','cupscreen','settingsscreen','onlinescreen','leaguescreen','transferscreen','stadiumscreen','academyscreen','careerscreen','pcareerscreen'];
 function refreshPlayerbar() {
   document.getElementById('pb-level').innerHTML = `УРОВЕНЬ <b>${levelOf(SAVE.xp)}</b>`;
   document.getElementById('pb-coins').innerHTML = `🪙 <b>${SAVE.coins}</b>`;
@@ -2782,6 +2816,7 @@ function showScreen(id) {
   if (id === 'stadiumscreen') renderStadium();
   if (id === 'academyscreen') renderAcademy();
   if (id === 'careerscreen') renderCareer();
+  if (id === 'pcareerscreen') renderPCareer();
 }
 document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => {
   for (const s of SCREEN_IDS) document.getElementById(s).style.display = 'none';
@@ -2796,6 +2831,7 @@ document.getElementById('transferbtn').addEventListener('click', () => showScree
 document.getElementById('stadiumbtn').addEventListener('click', () => showScreen('stadiumscreen'));
 document.getElementById('academybtn').addEventListener('click', () => showScreen('academyscreen'));
 document.getElementById('careerbtn').addEventListener('click', () => showScreen('careerscreen'));
+document.getElementById('pcareerbtn').addEventListener('click', () => showScreen('pcareerscreen'));
 
 /* ---- карьера тренера ---- */
 function renderCareer() {
@@ -2819,6 +2855,55 @@ function renderCareer() {
     renderCareer();
   });
 }
+
+/* ---- карьера игрока ---- */
+let pcCreatePos = 'MF', pcCreateClub = 'bayern';
+function renderPCareer() {
+  const pc = SAVE.pcareer;
+  document.getElementById('pc-create').style.display = pc ? 'none' : '';
+  document.getElementById('pc-view').style.display = pc ? '' : 'none';
+  if (!pc) {
+    const row = document.getElementById('pc-clubrow');
+    if (!row.children.length) {
+      row.innerHTML = CLUBS.map((c,i) => `<div class="opt${c.id==='bayern'?' sel':''}" data-pcc="${c.id}">${c.name}</div>`).join('');
+      row.querySelectorAll('[data-pcc]').forEach(el => el.onclick = () => {
+        pcCreateClub = el.dataset.pcc;
+        for (const o of row.children) o.classList.toggle('sel', o.dataset.pcc === pcCreateClub);
+      });
+    }
+    return;
+  }
+  const pos = { GK:'ВРАТАРЬ', DF:'ЗАЩИТНИК', MF:'ПОЛУЗАЩИТНИК', FW:'НАПАДАЮЩИЙ' }[pc.pos];
+  const avg = pc.matches ? (pc.ratingSum/pc.matches) : 0;
+  document.getElementById('pc-info').innerHTML =
+    `<b>${pc.name}</b> · №${pc.num} · ${pos}<br>Клуб: <b>${pcClub().name}</b> · возраст ${pc.age} · сезон ${pc.season}`;
+  document.getElementById('pc-stats').innerHTML = [
+    ['СИЛА (OVR)', pc.ovr, ovrCls(pc.ovr)],
+    ['МАТЧИ', pc.matches, 'o1'],
+    ['ГОЛЫ', pc.goals, 'o2'],
+    ['ПАСЫ', pc.assists, 'o2'],
+    ['СРЕДНЯЯ ОЦЕНКА', avg ? avg.toFixed(2) : '—', avg>=7.5?'o3':avg>=6.5?'o2':'o1'],
+  ].map(([k,v,c]) => `<div class="lurow"><span class="luname">${k}</span><b class="luovr ${c}">${v}</b></div>`).join('');
+}
+document.getElementById('pc-posrow').addEventListener('click', e => {
+  const b = e.target.closest('.opt'); if (!b) return;
+  for (const o of e.currentTarget.children) o.classList.remove('sel');
+  b.classList.add('sel'); pcCreatePos = b.dataset.p;
+});
+document.getElementById('pc-createbtn').addEventListener('click', () => {
+  const name = document.getElementById('pc-name').value.trim() || 'ТЫ';
+  createPCareer(name, pcCreatePos, pcCreateClub);
+  sBuy(); toast(`⭐ ${SAVE.pcareer.name} начинает карьеру в ${pcClub().name}!`);
+  renderPCareer();
+});
+document.getElementById('pc-resetbtn').addEventListener('click', () => {
+  if (confirm && !confirm('Начать карьеру заново новым игроком?')) return;
+  SAVE.pcareer = null; persist(); renderPCareer();
+});
+document.getElementById('pc-playbtn').addEventListener('click', () => {
+  document.getElementById('pcareerscreen').style.display = 'none';
+  startPlayerMatch();
+});
 
 /* ---- стадион ---- */
 const STADIUM_UP = [
@@ -3224,6 +3309,64 @@ function acceptOffer(cid) {
   persist();
   applyClub();
   toast(`✍️ Ты — тренер ${club.name}! Новый вызов.`);
+}
+
+/* ================= КАРЬЕРА ИГРОКА: играй за одного футболиста ================= */
+let pcSlot = -1;   // индекс слота твоего игрока в составе (в матче карьеры игрока)
+const PC_SLOT = { GK:0, DF:2, MF:6, FW:9 };   // куда встаёт по позиции
+function createPCareer(name, pos, clubId) {
+  SAVE.pcareer = {
+    name: (name || 'ТЫ').toUpperCase().slice(0, 12), pos, num: pos==='GK'?1:pos==='FW'?9:pos==='MF'?8:4,
+    ovr: 66, club: clubId, age: 17, season: 1,
+    matches: 0, goals: 0, assists: 0, ratingSum: 0,
+    skin: SK.l, hair: HR.dbr, style: 0, history: [],
+  };
+  persist();
+}
+function pcClub() { return clubById(SAVE.pcareer && SAVE.pcareer.club) || CLUBS[0]; }
+function startPlayerMatch() {
+  const pc = SAVE.pcareer; if (!pc) return;
+  const opp = CLUBS.filter(c => c.id !== pc.club).sort(() => Math.random()-0.5)[0];
+  matchMode = 'pcareer';   // myClub()/applySquad автоматически берут клуб игрока
+  DIFF = powDiff(opp.pow);
+  oppTacticId = opp.tac;
+  curOppId = opp.id;
+  setOpponent(opp);
+  startMatch();
+}
+function pcInsert() {   // вставить твоего игрока в состав и залочить управление
+  const pc = SAVE.pcareer; if (!pc) return;
+  pcSlot = PC_SLOT[pc.pos] ?? 9;
+  const p = teams[0].players[pcSlot];
+  p.pdata = { id:'pc_you', name: pc.name, pos: pc.pos, ovr: pc.ovr, num: pc.num };
+  p.name = pc.name; p.num = pc.num; p.ovr = pc.ovr; p.ovrM = ovrMul(pc.ovr); p.isYou = true;
+  p.limbs.setNum && p.limbs.setNum(pc.num);
+  if (p.limbs.relook && !p.isGK) p.limbs.relook({ skin: pc.skin, hair: pc.hair, style: pc.style });
+  controlled = p;
+  matchCtx.pcGoals = 0; matchCtx.pcAssists = 0;
+}
+function pcAfterMatch() {
+  const pc = SAVE.pcareer; if (!pc) return '';
+  const you = teams[0].players[pcSlot];
+  const rating = you ? Math.min(10, Math.max(5, you.rating)) : 6.5;
+  pc.matches++; pc.ratingSum += rating;
+  pc.goals += matchCtx.pcGoals || 0; pc.assists += matchCtx.pcAssists || 0;
+  // рост силы по оценке
+  let grew = 0;
+  if (pc.ovr < 94 && (rating >= 7.5 || (rating >= 6.8 && Math.random() < 0.4))) { pc.ovr++; grew = 1; }
+  let msg = `Твоя оценка: ${rating.toFixed(1)} · голы +${matchCtx.pcGoals||0} · пасы +${matchCtx.pcAssists||0}` + (grew ? ` · 📈 сила ${pc.ovr}!` : '');
+  // сезон каждые 12 матчей + возможный трансфер в клуб посильнее
+  if (pc.matches % 12 === 0) {
+    pc.season++; pc.age++;
+    const avg = pc.ratingSum / pc.matches;
+    if (avg >= 7.2 && pc.ovr >= 78) {
+      const bigger = CLUBS.filter(c => c.id !== pc.club && c.pow >= pcClub().pow && c.pow >= 2).sort((a,b)=>b.pow-a.pow);
+      if (bigger.length) { const nc = bigger[(Math.random()*Math.min(3,bigger.length))|0]; pc.club = nc.id; msg += ` · 🌟 ТРАНСФЕР в ${nc.name}!`; }
+    }
+    msg += ` · Сезон ${pc.season}`;
+  }
+  persist();
+  return msg;
 }
 function recResult(t, idA, idB, gA, gB) {
   const a = t[idA], b = t[idB];
@@ -4000,7 +4143,11 @@ function setPData(p, pd) {                 // навесить данные ро
 }
 function applySquad() {                    // старт NEON из SAVE.squad + звезда = максимальный ovr
   const t = teams[0];
-  t.players.forEach((p, i) => { setPData(p, pdataById(SAVE.squad.start[i]) || ROSTER[i]); p.injured = false; });
+  // в карьере игрока — реальный состав клуба игрока; иначе твой сохранённый состав
+  const startIds = (matchMode === 'pcareer' && SAVE.pcareer)
+    ? (squadForClub(SAVE.pcareer.club) || { start: SAVE.squad.start }).start
+    : SAVE.squad.start;
+  t.players.forEach((p, i) => { setPData(p, pdataById(startIds[i]) || ROSTER[i]); p.injured = false; });
   let best = null;
   for (const p of t.players) { if (p.isGK) continue; if (!best || p.ovr > best.ovr) best = p; }
   for (const p of t.players) p.isStar = p === best;
@@ -4148,6 +4295,9 @@ function startMatch() {
     p.limbs.relook(lookFor(oppRoster && oppRoster[i] ? oppRoster[i][0] : ''));
   });
   applyCosmetics();
+  for (const p of allPlayers) p.isYou = false;
+  pcSlot = -1;
+  if (matchMode === 'pcareer') pcInsert();   // вставить твоего игрока и залочить управление
   for (const s of SCREEN_IDS) document.getElementById(s).style.display = 'none';
   teams[0].score = 0; teams[1].score = 0;
   teams[0].dir = +1; teams[1].dir = -1;
@@ -4227,6 +4377,21 @@ function endMatch() {
   sWhistle(3); crowdLevel(0.35, 0.3);
   document.body.classList.remove('playing');
   const s0=teams[0].score, s1=teams[1].score;
+  if (matchMode === 'pcareer') {
+    const win = s0 > s1, draw = s0 === s1;
+    const pcMsg = pcAfterMatch();
+    SAVE.coins += (win?30:draw?15:8) + (matchCtx.pcGoals||0)*10;
+    persist();
+    document.getElementById('endscore').textContent = `${s0} : ${s1}`;
+    document.getElementById('endscore').style.color = win?'#22d3ee':(draw?'#b8f335':'#ff5a2e');
+    document.getElementById('endverdict').textContent = win?`ПОБЕДА ${pcClub().name}!`:(draw?'НИЧЬЯ':`ПОРАЖЕНИЕ`);
+    document.getElementById('rewards').innerHTML = `⚽ ${SAVE.pcareer.name}: ${pcMsg}`;
+    document.getElementById('ratinggrid').innerHTML = '';
+    document.getElementById('endxp').style.width = '0%';
+    ['st-poss0','st-poss1','st-shots0','st-shots1','st-ont0','st-ont1','st-fouls0','st-fouls1','st-offs0','st-offs1','st-cards0','st-cards1'].forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent=''; });
+    setTimeout(()=>{ document.getElementById('endscreen').style.display='flex'; crowdLevel(0.06,2); }, 900);
+    return;
+  }
   if (matchMode === 'train') {
     // тренировка не идёт в зачёт: ни наград, ни статистики
     document.getElementById('endscore').textContent = `${s0} : ${s1}`;
@@ -4395,6 +4560,7 @@ document.getElementById('menubtn').addEventListener('click', () => {
   if (NET.mode !== 'off') { netSend({t:'bye'}); netCleanup(); }
   try { speechSynthesis.cancel(); } catch(e) {}
   musicDuck(false);
+  if (matchMode === 'pcareer') matchMode = 'friendly';   // вернуть менеджерский клуб
   state='MENU'; document.getElementById('endscreen').style.display='none';
   document.getElementById('startscreen').style.display='flex';
   hud.style.display='none'; radarEl.style.display='none';
@@ -4405,6 +4571,7 @@ document.getElementById('quitbtn').addEventListener('click', () => {
   if (NET.mode !== 'off') { netSend({t:'bye'}); netCleanup(); }
   try { speechSynthesis.cancel(); } catch(e) {}
   musicDuck(false);
+  if (matchMode === 'pcareer') matchMode = 'friendly';
   document.getElementById('pausescreen').style.display='none';
   document.body.classList.remove('playing');
   state='MENU';
@@ -4584,6 +4751,10 @@ function actionLob() {
 }
 function manualSwitch() {
   if (NET.mode === 'guest') { netSend({t:'act', k:'switch'}); return; }
+  if (matchMode === 'pcareer') {   // карьера игрока: без смены, только финт с мячом
+    if (controlled && ball.owner === controlled) doFeint(controlled, input);
+    return;
+  }
   if (ball.owner && ball.owner.team===0) {
     if (ball.owner === controlled) doFeint(controlled, input);   // с мячом Q/СМЕНА = ФИНТ
     return;
@@ -5705,6 +5876,10 @@ function awardGoal(scoringTeam) {
   if (scorer && scorer.team === scoringTeam.id) scorer.rating += 1.4;
   if (scorer && scorer.team === 0 && scoringTeam.id === 0 && scorer.pdata)
     SAVE.scorers[scorer.pdata.name] = (SAVE.scorers[scorer.pdata.name] || 0) + 1;   // клубные бомбардиры
+  if (matchMode === 'pcareer' && scoringTeam.id === 0) {
+    if (scorer && scorer.isYou) matchCtx.pcGoals = (matchCtx.pcGoals||0) + 1;
+    if (ball.assist && ball.assist.p && ball.assist.p.isYou && ball.assist.p !== scorer) matchCtx.pcAssists = (matchCtx.pcAssists||0) + 1;
+  }
   const as = ball.assist;
   if (as && scorer && as.p !== scorer && as.p.team === scoringTeam.id && perfNow - as.t < 9) as.p.rating += 0.9;
   ball.assist = null;
@@ -5784,6 +5959,10 @@ function updateFireworks(dt) {
 let switchCd = 0;
 function updateControlled(dt) {
   switchCd -= dt;
+  if (matchMode === 'pcareer' && pcSlot >= 0) {   // карьера игрока: управляешь только своим футболистом
+    if (!teams[0].players[pcSlot].sentOff) controlled = teams[0].players[pcSlot];
+    return;
+  }
   if (ball.owner && ball.owner.team===0) {
     controlled = ball.owner;                // the keeper included — distribute yourself
     return;
@@ -5889,6 +6068,13 @@ function updateCamera(dt) {
     py = 4.2;
     pz = sp.z + (sp.z > 6 ? -15 : 15);
     lx = ball.pos.x; ly = 0.9; lz = ball.pos.z;
+  } else if (matchMode === 'pcareer' && controlled && (state==='PLAY'||state==='KICKOFF'||state==='RESTART')) {
+    // карьера игрока: держим в кадре и мяч, и твоего футболиста
+    const mx = (ball.pos.x + controlled.pos.x) / 2, mz = (ball.pos.z + controlled.pos.z) / 2;
+    px = THREE.MathUtils.clamp(mx*0.9, -42, 42);
+    py = 24 + Math.abs(mz)*0.1; pz = 40 + mz*0.28;
+    lx = mx*0.92; ly = 1.2; lz = mz*0.62;
+    if (camera.aspect < 1) { const z = THREE.MathUtils.clamp(1 + (0.72 - camera.aspect)*0.9, 1.05, 1.5); py *= z; pz = (32 + mz*0.3)*z; }
   } else {
     px = THREE.MathUtils.clamp(ball.pos.x*0.86, -44, 44);
     py = 27 + Math.abs(ball.pos.z)*0.1;
