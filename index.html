@@ -983,6 +983,8 @@ const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;   // кинематографичный тон, как в FC/EA
+renderer.toneMappingExposure = 1.16;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x070b1c);
 scene.fog = new THREE.Fog(0x070b1c, 140, 420);
@@ -996,6 +998,12 @@ scene.add(dl);
 const dl2 = new THREE.DirectionalLight(0x88c0ff, 0.4);
 dl2.position.set(60, 70, -50);
 scene.add(dl2);
+const dlRim = new THREE.DirectionalLight(0xcfe6ff, 0.7);   // контровой свет — отделяет игроков от тёмного поля
+dlRim.position.set(0, 26, -95);
+scene.add(dlRim);
+const dlWarm = new THREE.DirectionalLight(0xffd6a8, 0.32);  // тёплая подсветка кожи спереди
+dlWarm.position.set(18, 10, 70);
+scene.add(dlWarm);
 
 function fitViewport() {
   const w = innerWidth, h = innerHeight;
@@ -1018,6 +1026,14 @@ document.addEventListener('contextmenu', e => { if (document.body.classList.cont
 
 /* ================= STADIUM ================= */
 function lamb(c, e, ei) { return new THREE.MeshLambertMaterial({ color:c, emissive:e ?? 0x000000, emissiveIntensity: ei ?? 0.25 }); }
+function pbr(c, o) { o = o || {};   // физичный материал: шероховатость/металл дают живые блики от прожекторов
+  const m = new THREE.MeshStandardMaterial({ color:c,
+    roughness: o.rough != null ? o.rough : 0.8,
+    metalness: o.metal != null ? o.metal : 0.0,
+    emissive:  o.e != null ? o.e : 0x000000 });
+  m.emissiveIntensity = o.ei != null ? o.ei : 0.25;
+  return m;
+}
 
 {
   const gnd = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), lamb(0x0a1220));
@@ -1290,6 +1306,7 @@ const SKINS = [0xf6cfa8, 0xe4b184, 0xc98a58, 0x8a5a33, 0x5f3d22];
 const HAIRC = [0x15100a, 0x2e1c0d, 0x4a2c12, 0x71491c, 0x101014, 0x9a7433, 0x43120c];
 const allPlayers = [];
 const dk = (hex, f) => new THREE.Color(hex).multiplyScalar(f).getHex();
+const lum = hex => { const c = new THREE.Color(hex); return 0.299*c.r + 0.587*c.g + 0.114*c.b; };
 const GEO = {
   torso:  new THREE.CapsuleGeometry(0.205, 0.30, 4, 14),
   pelvis: new THREE.CapsuleGeometry(0.165, 0.10, 4, 12),
@@ -1299,7 +1316,8 @@ const GEO = {
   shin:   new THREE.CapsuleGeometry(0.062, 0.26, 4, 12),
   legcuff:new THREE.CapsuleGeometry(0.098, 0.11, 4, 12),
   knee:   new THREE.SphereGeometry(0.066, 10, 8),
-  foot:   new THREE.SphereGeometry(0.095, 12, 10),
+  bootU:  new THREE.CapsuleGeometry(0.06, 0.13, 5, 14),
+  sole:   new THREE.BoxGeometry(0.115, 0.032, 0.30),
   uarm:   new THREE.CapsuleGeometry(0.058, 0.15, 4, 12),
   farm:   new THREE.CapsuleGeometry(0.049, 0.16, 4, 12),
   hand:   new THREE.SphereGeometry(0.058, 10, 8),
@@ -1311,31 +1329,44 @@ const GEO = {
   hairTop:new THREE.SphereGeometry(0.187, 18, 12, 0, Math.PI*2, 0, 1.65),
   hairBack:new THREE.SphereGeometry(0.183, 14, 8, Math.PI, Math.PI, 1.0, 1.05),
   mohawk: new THREE.CapsuleGeometry(0.05, 0.20, 4, 10),
-  shadow: new THREE.CircleGeometry(0.5, 14),
+  beard:  new THREE.SphereGeometry(0.181, 20, 12, Math.PI/2 - 1.05, 2.1, Math.PI*0.54, Math.PI*0.40),
+  headband:new THREE.TorusGeometry(0.152, 0.024, 8, 22),
+  ear:     new THREE.CapsuleGeometry(0.026, 0.03, 3, 8),
+  delt:    new THREE.SphereGeometry(0.088, 12, 10),
+  collar:  new THREE.TorusGeometry(0.10, 0.022, 8, 22),
+  cuff:    new THREE.TorusGeometry(0.062, 0.016, 6, 16),
+  sockband:new THREE.CylinderGeometry(0.070, 0.072, 0.06, 14),
+  shadow:  new THREE.CircleGeometry(0.5, 14),
 };
 const shadowMat = new THREE.MeshBasicMaterial({ color:0x000000, transparent:true, opacity:0.32 });
-const eyeWhite = new THREE.MeshLambertMaterial({ color:0xf8fbff });
-const eyeDark  = new THREE.MeshLambertMaterial({ color:0x1a1410 });
-const mouthMat = new THREE.MeshLambertMaterial({ color:0x8a4438 });
+const eyeWhite = new THREE.MeshStandardMaterial({ color:0xf6f9ff, roughness:0.22, metalness:0.0 });   // глазной блик — живой взгляд
+const eyeDark  = new THREE.MeshStandardMaterial({ color:0x120f0c, roughness:0.12, metalness:0.0 });
+const mouthMat = new THREE.MeshStandardMaterial({ color:0x7e3b32, roughness:0.55, metalness:0.0 });
 
 function buildBody(cfg) {
   const g = new THREE.Group();
-  const shirtM  = lamb(cfg.kit, cfg.kit, 0.30);
-  const shortsM = lamb(cfg.shorts, cfg.shorts, 0.2);
-  const sockM   = lamb(cfg.sock, cfg.sock, 0.22);
-  const skinM   = lamb(cfg.skin);
-  const skinD   = lamb(dk(cfg.skin, 0.82));
-  const hairM   = lamb(cfg.hair);
-  const bootM   = lamb(cfg.boot);
-  const handM   = cfg.gk ? lamb(0xf2f5fa) : skinM;
+  const shirtM  = pbr(cfg.kit,    { rough:0.55, e:cfg.kit,    ei:0.30 });   // джерси со спортивным блеском
+  const shortsM = pbr(cfg.shorts, { rough:0.66, e:cfg.shorts, ei:0.20 });
+  const sockM   = pbr(cfg.sock,   { rough:0.78, e:cfg.sock,   ei:0.22 });
+  const skinM   = pbr(cfg.skin,   { rough:0.62, e:cfg.skin,   ei:0.10 });   // мягкий блик + подповерхностное тепло
+  const skinD   = pbr(dk(cfg.skin, 0.82), { rough:0.68, e:dk(cfg.skin, 0.82), ei:0.08 });
+  const hairM   = pbr(cfg.hair,   { rough:0.38, metal:0.05, e:cfg.hair, ei:0.05 });
+  const beardM  = pbr(cfg.hair,   { rough:0.62, e:cfg.hair, ei:0.04 });     // борода/щетина под цвет волос
+  const bandM   = pbr(0x161616,   { rough:0.55 });                          // повязка на голову
+  const bootM   = pbr(cfg.boot,   { rough:0.24, metal:0.15 });              // глянцевые бутсы
+  const handM   = cfg.gk ? pbr(0xf2f5fa, { rough:0.5 }) : skinM;
+  const trimCol = cfg.trim != null ? cfg.trim : (lum(cfg.kit) > 0.6 ? dk(cfg.kit, 0.42) : 0xeef2f8);
+  const trimM   = pbr(trimCol, { rough:0.5, e:trimCol, ei:0.2 });           // кант: ворот, манжеты, отворот гетр
+  const soleM   = pbr(0x0a0b0f, { rough:0.9 });                             // матовая подошва бутсы
   const mk = (geo, mat, x, y, z, parent) => {
     const m = new THREE.Mesh(geo, mat);
     m.position.set(x, y, z); (parent || g).add(m); return m;
   };
   // корпус
-  mk(GEO.torso, shirtM, 0, 1.205, 0).scale.set(1.16, 1, 0.72);
-  mk(GEO.pelvis, shortsM, 0, 0.965, 0).scale.set(1.14, 0.86, 0.82);
+  mk(GEO.torso, shirtM, 0, 1.205, 0).scale.set(1.06, 1.0, 0.60);           // атлетичный корпус: у́же и плосче
+  mk(GEO.pelvis, shortsM, 0, 0.965, 0).scale.set(1.02, 0.9, 0.70);
   mk(GEO.neck, skinM, 0, 1.435, 0);
+  const collar = mk(GEO.collar, trimM, 0, 1.452, 0.004); collar.rotation.x = Math.PI/2 - 0.1; collar.scale.set(1.02, 1, 0.9);
   // голова + лицо
   const headG = new THREE.Group(); headG.position.set(0, 1.585, 0); g.add(headG);
   mk(GEO.head, skinM, 0, 0, 0, headG).scale.set(0.94, 1.04, 0.97);
@@ -1348,6 +1379,10 @@ function buildBody(cfg) {
   mk(GEO.nose, skinD, 0, -0.028, 0.166, headG).scale.set(0.8, 1.1, 0.75);
   const mo = mk(GEO.mouth, mouthMat, 0, -0.088, 0.148, headG);
   mo.rotation.z = Math.PI/2; mo.scale.set(1, 1, 0.4);
+  for (const sx of [-1, 1]) {                     // уши
+    const ear = mk(GEO.ear, skinM, sx*0.158, -0.004, 0.004, headG);
+    ear.rotation.z = sx*0.12; ear.scale.set(0.7, 1, 0.85);
+  }
   // причёска (перестраиваемая — стиль 0 короткие · 1 с затылком · 2 ирокез · 3 лысый · 4 длинные · 5 кудри/афро)
   let hairMeshes = [];
   const buildHair = (style) => {
@@ -1362,40 +1397,66 @@ function buildBody(cfg) {
     } else if (style === 4) {                    // длинные волосы (напр. Холанд)
       const t = hm(GEO.hairTop, 0, 0.016, -0.008); t.rotation.x = -0.13; t.scale.set(1.03, 1.08, 1.06);
       const b = hm(GEO.hairBack, 0, -0.05, -0.02); b.scale.set(1.2, 1.9, 1.22);
-    } else if (style === 5) {                    // кудри / афро
+    } else if (style === 5) {                    // кудри / афро / локи
       const a = hm(GEO.hairTop, 0, 0.05, -0.008); a.rotation.x = -0.08; a.scale.set(1.18, 1.2, 1.2);
+    } else if (style === 6) {                    // короткий ёжик (buzz)
+      const h = hm(GEO.hairTop, 0, 0.004, -0.014); h.rotation.x = -0.16; h.scale.set(0.98, 0.58, 0.99);
+    } else if (style === 7) {                    // длинные + повязка (Холанд)
+      const t = hm(GEO.hairTop, 0, 0.016, -0.008); t.rotation.x = -0.13; t.scale.set(1.03, 1.06, 1.05);
+      const b = hm(GEO.hairBack, 0, -0.05, -0.02); b.scale.set(1.16, 1.8, 1.18);
+      const band = new THREE.Mesh(GEO.headband, bandM);
+      band.position.set(0, 0.07, 0.004); band.rotation.x = Math.PI/2 - 0.08; band.scale.set(1.0, 1, 0.9);
+      headG.add(band); hairMeshes.push(band);
     }
     // 3 = лысый: ничего
   };
   buildHair(cfg.style);
+  let beardMeshes = [];
+  const buildBeard = (bd) => {                   // 0 нет · 1 щетина · 2 борода
+    for (const m of beardMeshes) headG.remove(m); beardMeshes = [];
+    if (!bd) return;
+    const m = new THREE.Mesh(GEO.beard, beardM);
+    m.position.set(0, bd >= 2 ? -0.014 : -0.010, 0.004);
+    m.scale.set(bd >= 2 ? 0.98 : 0.94, bd >= 2 ? 1.06 : 0.9, bd >= 2 ? 1.05 : 1.0);
+    headG.add(m); beardMeshes.push(m);
+  };
+  buildBeard(cfg.beard || 0);
   const J = {};
   // ноги: таз → бедро → колено → голень → бутса
   for (const [key, sx] of [['L',-1], ['R',1]]) {
     const hip = new THREE.Group(); hip.position.set(sx*0.096, 0.95, 0); g.add(hip);
     mk(GEO.legcuff, shortsM, 0, -0.06, 0, hip).scale.set(1, 0.8, 1);
-    mk(GEO.thigh, skinM, 0, -0.21, 0, hip);
+    mk(GEO.thigh, skinM, 0, -0.21, 0, hip).scale.set(1.06, 1, 1.06);
     const knee = new THREE.Group(); knee.position.set(0, -0.43, 0); hip.add(knee);
     mk(GEO.knee, skinM, 0, 0, 0, knee);
-    mk(GEO.shin, sockM, 0, -0.20, 0, knee);
-    mk(GEO.foot, bootM, 0, -0.42, 0.055, knee).scale.set(0.82, 0.5, 1.55);
-    J['hip'+key] = hip; J['knee'+key] = knee;
+    mk(GEO.shin, sockM, 0, -0.20, 0, knee).scale.set(1.05, 1, 1.05);
+    const ankle = new THREE.Group(); ankle.position.set(0, -0.40, 0); knee.add(ankle);
+    mk(GEO.sockband, trimM, 0, -0.05, 0, knee);                             // отворот гетры
+    const bootU = mk(GEO.bootU, bootM, 0, -0.03, 0.052, ankle);             // глянцевый верх бутсы
+    bootU.rotation.x = Math.PI/2; bootU.scale.set(1, 1.15, 0.6);
+    mk(GEO.sole, soleM, 0, -0.072, 0.06, ankle);                            // матовая подошва
+    J['hip'+key] = hip; J['knee'+key] = knee; J['ankle'+key] = ankle;
   }
   // руки: плечо → локоть → предплечье → кисть
   for (const [key, sx] of [['L',-1], ['R',1]]) {
-    const sh = new THREE.Group(); sh.position.set(sx*0.272, 1.36, 0); g.add(sh);
+    const sh = new THREE.Group(); sh.position.set(sx*0.232, 1.39, 0); g.add(sh);
+    mk(GEO.delt, shirtM, 0, -0.02, 0, sh).scale.set(0.86, 1.14, 0.86);   // дельта вытянута в рукав — плавное плечо без «шара»
     mk(GEO.uarm, shirtM, 0, -0.10, 0, sh);
+    const cuff = mk(GEO.cuff, trimM, 0, -0.205, 0, sh); cuff.rotation.x = Math.PI/2; cuff.scale.set(1.06, 1, 1.06);  // кант рукава
     const el = new THREE.Group(); el.position.set(0, -0.245, 0); sh.add(el);
     mk(GEO.farm, skinM, 0, -0.10, 0, el);
-    mk(GEO.hand, handM, 0, -0.235, 0, el);
+    mk(GEO.hand, handM, 0, -0.235, 0, el).scale.set(0.82, 1.18, 0.56);       // ладонь-лопатка
     J['sh'+key] = sh; J['el'+key] = el;
   }
   return { g, headG, shirt: shirtM, shorts: shortsM, sock: sockM,
     hipL: J.hipL, hipR: J.hipR, kneeL: J.kneeL, kneeR: J.kneeR,
+    ankleL: J.ankleL, ankleR: J.ankleR,
     shL: J.shL, shR: J.shR, elL: J.elL, elR: J.elR,
     relook: (look) => {                          // внешность игрока: кожа, цвет и стиль волос
-      if (look.skin != null) { skinM.color.setHex(look.skin); skinD.color.setHex(dk(look.skin, 0.82)); }
-      if (look.hair != null) hairM.color.setHex(look.hair);
+      if (look.skin != null) { skinM.color.setHex(look.skin); skinM.emissive.setHex(look.skin); skinD.color.setHex(dk(look.skin, 0.82)); skinD.emissive.setHex(dk(look.skin, 0.82)); }
+      if (look.hair != null) { hairM.color.setHex(look.hair); hairM.emissive.setHex(look.hair); beardM.color.setHex(look.hair); beardM.emissive.setHex(look.hair); }
       if (look.style != null) buildHair(look.style);
+      if (look.beard != null) buildBeard(look.beard);
     } };
 }
 
@@ -1448,8 +1509,13 @@ function animatePlayer(p, dt, spd) {
   let shR = Math.sin(ph) * 0.66 * sw - (1 - sw) * br;
   let elL = 0.30 + 0.55 * sw + Math.max(0, -Math.sin(ph)) * 0.3 * sw;
   let elR = 0.30 + 0.55 * sw + Math.max(0, Math.sin(ph)) * 0.3 * sw;
-  let szL = -0.10, szR = 0.10;
-  let rotX = 0.16 * sw, rotZ = 0, posY = 0;
+  let szL = -0.10 - Math.max(0, Math.cos(ph)) * 0.13 * sw;   // передняя рука подбирается к корпусу
+  let szR =  0.10 + Math.max(0, -Math.cos(ph)) * 0.13 * sw;
+  let ankL = 0.10 + Math.sin(ph) * 0.30 * sw;                // голеностоп: носок ведёт шаг
+  let ankR = 0.10 + Math.sin(ph + Math.PI) * 0.30 * sw;
+  let rotX = 0.16 * sw;
+  let rotZ = Math.sin(ph) * 0.055 * sw + Math.sin(idle * 0.7) * 0.016 * (1 - sw);   // раскачка корпуса в беге + перенос веса стоя
+  let posY = Math.abs(Math.sin(ph)) * 0.05 * sw;             // корпус подрастает на каждом толчке
 
   if (p.kickAnim > 0) { // замах → хлёсткий пронос
     const k = 1 - p.kickAnim / 0.28;
@@ -1457,6 +1523,7 @@ function animatePlayer(p, dt, spd) {
     else { const t = (k - 0.35) / 0.65; hipR = -1.0 + 2.3 * t; kneeR = -1.5 + 1.38 * t; }
     hipL = -0.22; kneeL = -0.15;
     shL = 0.9 * Math.sin(k * Math.PI); shR = -0.7 * Math.sin(k * Math.PI);
+    ankR = -0.55 + k * 0.5; ankL = 0.22;                     // бьющая стопа тянет носок, опорная — упор
     rotX = 0.2;
   }
   if (p.isGK && ball.pos.distanceTo(p.pos) < 9 && ball.pos.y > 0.8) {
@@ -1466,6 +1533,7 @@ function animatePlayer(p, dt, spd) {
     if (p.sliding) { // подкат ногами вперёд
       hipL = 1.5; kneeL = -0.12; hipR = 1.05; kneeR = -0.8;
       shL = -1.1; shR = 0.5; elL = 0.3; elR = 0.5;
+      ankL = 0.35; ankR = -0.15;
       rotX = -0.85; posY = -0.3;
     } else { // выпад-отбор
       rotX = 0.5; shL = 0.95; shR = 0.95; elL = 0.25; elR = 0.25;
@@ -1566,6 +1634,7 @@ function animatePlayer(p, dt, spd) {
 
   L.hipL.rotation.x = hipL; L.hipR.rotation.x = hipR;
   L.kneeL.rotation.x = kneeL; L.kneeR.rotation.x = kneeR;
+  if (L.ankleL) { L.ankleL.rotation.x = ankL; L.ankleR.rotation.x = ankR; }
   L.shL.rotation.x = shL; L.shR.rotation.x = shR;
   L.shL.rotation.z = szL; L.shR.rotation.z = szR;
   L.elL.rotation.x = elL; L.elR.rotation.x = elR;
@@ -2483,67 +2552,72 @@ const squadForClub = cid => CLUB_ROSTERS[cid]
 /* ---- внешность игроков ≈ как в жизни: кожа, цвет и стиль волос ---- */
 const SK = { lt:0xf2d3b0, l:0xe9bf98, m:0xcb9a6f, t:0xa9764c, br:0x7a4e30, dk:0x543018 };
 const HR = { blk:0x14100c, dbr:0x2a1c10, br:0x4a3018, lbr:0x6e4a24, bl:0xcbb079, bl2:0xe6cf94, gin:0xb5651d, gry:0xa8a8a8 };
-// [кожа, волосы, стиль]  стиль: 0 короткие · 1 с затылком · 2 ирокез · 3 лысый · 4 длинные · 5 кудри/афро
+// [кожа, волосы, стиль, борода]  стиль: 0 короткие · 1 с затылком · 2 ирокез · 3 лысый · 4 длинные · 5 кудри/афро/локи · 6 ёжик · 7 длинные+повязка;  борода: 0 нет · 1 щетина · 2 борода
 const PLAYER_LOOKS = {
   // Бавария
-  'НОЙЕР':[SK.lt,HR.br,0],'КИММИХ':[SK.lt,HR.bl,0],'УПАМЕКАНО':[SK.dk,HR.blk,3],'ДЭВИС':[SK.dk,HR.blk,0],
-  'МУСИАЛА':[SK.t,HR.blk,5],'КЕЙН':[SK.lt,HR.br,0],'САНЕ':[SK.br,HR.blk,0],'ГНАБРИ':[SK.br,HR.blk,3],
-  'ГОРЕЦКА':[SK.lt,HR.dbr,0],'ТЕЛЬ':[SK.dk,HR.blk,0],'КИМ':[SK.m,HR.blk,0],'ЛАЙМЕР':[SK.lt,HR.dbr,0],
+  'НОЙЕР':[SK.lt,HR.br,0,1],'КИММИХ':[SK.lt,HR.bl,0,0],'УПАМЕКАНО':[SK.dk,HR.blk,3,0],'ДЭВИС':[SK.dk,HR.blk,6,0],
+  'МУСИАЛА':[SK.t,HR.blk,5,0],'КЕЙН':[SK.lt,HR.br,0,1],'САНЕ':[SK.br,HR.blk,0,0],'ГНАБРИ':[SK.br,HR.blk,3,1],
+  'ГОРЕЦКА':[SK.lt,HR.dbr,0,1],'ТЕЛЬ':[SK.dk,HR.blk,0,0],'КИМ':[SK.m,HR.blk,0,0],'ЛАЙМЕР':[SK.lt,HR.dbr,0,0],
   // Дортмунд
-  'ХУММЕЛЬС':[SK.lt,HR.br,1],'ФЮЛЛКРУГ':[SK.lt,HR.dbr,0],'АДЕЙЕМИ':[SK.dk,HR.blk,0],'БРАНДТ':[SK.lt,HR.dbr,0],
-  'МАЛЕН':[SK.br,HR.blk,0],'МУКОКО':[SK.dk,HR.blk,0],
+  'ХУММЕЛЬС':[SK.lt,HR.br,1,2],'ФЮЛЛКРУГ':[SK.lt,HR.dbr,0,2],'АДЕЙЕМИ':[SK.dk,HR.blk,0,0],'БРАНДТ':[SK.lt,HR.dbr,0,1],
+  'МАЛЕН':[SK.br,HR.blk,0,0],'МУКОКО':[SK.dk,HR.blk,0,0],
   // Реал
-  'КУРТУА':[SK.lt,HR.br,0],'БЕЛЛИНГЕМ':[SK.lt,HR.dbr,0],'ВИНИСИУС':[SK.br,HR.blk,0],'МОДРИЧ':[SK.lt,HR.bl,1],
-  'КРООС':[SK.lt,HR.bl,0],'РЮДИГЕР':[SK.dk,HR.blk,3],'ВАЛЬВЕРДЕ':[SK.l,HR.br,1],'РОДРИГО':[SK.t,HR.blk,0],
-  'КАРВАХАЛЬ':[SK.l,HR.dbr,1],'МИЛИТАН':[SK.dk,HR.blk,0],'КАМАВИНГА':[SK.dk,HR.blk,0],'МЕНДИ':[SK.dk,HR.blk,0],
+  'КУРТУА':[SK.lt,HR.br,0,1],'БЕЛЛИНГЕМ':[SK.lt,HR.dbr,0,1],'ВИНИСИУС':[SK.br,HR.blk,5,0],'МОДРИЧ':[SK.lt,HR.bl,1,1],
+  'КРООС':[SK.lt,HR.bl,0,0],'РЮДИГЕР':[SK.dk,HR.blk,3,2],'ВАЛЬВЕРДЕ':[SK.l,HR.br,1,1],'РОДРИГО':[SK.t,HR.blk,0,0],
+  'КАРВАХАЛЬ':[SK.l,HR.dbr,1,2],'МИЛИТАН':[SK.dk,HR.blk,0,1],'КАМАВИНГА':[SK.dk,HR.blk,5,0],'МЕНДИ':[SK.dk,HR.blk,0,1],
   // Барселона
-  'ЛЕВАНДОВСКИ':[SK.lt,HR.lbr,0],'ЯМАЛЬ':[SK.m,HR.blk,0],'ПЕДРИ':[SK.l,HR.dbr,0],'ГАВИ':[SK.l,HR.br,0],
-  'ДЕ ЙОНГ':[SK.lt,HR.bl,0],'ТЕР ШТЕГЕН':[SK.lt,HR.br,0],'АРАУХО':[SK.t,HR.blk,0],'КУНДЕ':[SK.br,HR.blk,0],
-  'ГЮНДОГАН':[SK.l,HR.dbr,1],'КАНСЕЛУ':[SK.l,HR.dbr,0],'БАЛЬДЕ':[SK.dk,HR.blk,5],
+  'ЛЕВАНДОВСКИ':[SK.lt,HR.lbr,0,1],'ЯМАЛЬ':[SK.m,HR.blk,0,0],'ПЕДРИ':[SK.l,HR.dbr,0,0],'ГАВИ':[SK.l,HR.br,0,0],
+  'ДЕ ЙОНГ':[SK.lt,HR.bl,0,1],'ТЕР ШТЕГЕН':[SK.lt,HR.br,0,1],'АРАУХО':[SK.t,HR.blk,0,1],'КУНДЕ':[SK.br,HR.blk,0,0],
+  'ГЮНДОГАН':[SK.l,HR.dbr,1,2],'КАНСЕЛУ':[SK.l,HR.dbr,0,1],'БАЛЬДЕ':[SK.dk,HR.blk,5,0],
   // Ман Сити
-  'ХОЛАНН':[SK.lt,HR.bl2,4],'ДЕ БРЁЙНЕ':[SK.lt,HR.bl,0],'ФОДЕН':[SK.lt,HR.bl,0],'РОДРИ':[SK.l,HR.dbr,5],
-  'ГРИЛИШ':[SK.lt,HR.dbr,0],'ЭДЕРСОН':[SK.t,HR.blk,0],'ДИАШ':[SK.l,HR.dbr,0],'УОКЕР':[SK.br,HR.blk,3],
-  'АЛЬВАРЕС':[SK.l,HR.dbr,0],'БЕРНАРДУ':[SK.l,HR.dbr,0],'СТОУНЗ':[SK.l,HR.dbr,0],'ГВАРДИОЛ':[SK.lt,HR.bl,1],
+  'ХОЛАНН':[SK.lt,HR.bl2,7,1],'ДЕ БРЁЙНЕ':[SK.lt,HR.bl,0,1],'ФОДЕН':[SK.lt,HR.bl,0,0],'РОДРИ':[SK.l,HR.dbr,5,1],
+  'ГРИЛИШ':[SK.lt,HR.dbr,0,0],'ЭДЕРСОН':[SK.t,HR.blk,0,1],'ДИАШ':[SK.l,HR.dbr,0,1],'УОКЕР':[SK.br,HR.blk,3,1],
+  'АЛЬВАРЕС':[SK.l,HR.dbr,0,0],'БЕРНАРДУ':[SK.l,HR.dbr,0,1],'СТОУНЗ':[SK.l,HR.dbr,0,0],'ГВАРДИОЛ':[SK.lt,HR.bl,1,0],
   // Ливерпуль
-  'САЛАХ':[SK.t,HR.blk,5],'ВАН ДЕЙК':[SK.br,HR.blk,0],'АЛИССОН':[SK.l,HR.dbr,0],'НУНЬЕС':[SK.l,HR.dbr,5],
-  'АЛЕКСАНДЕР-АРНОЛЬД':[SK.t,HR.blk,0],'РОБЕРТСОН':[SK.lt,HR.gin,0],'МАК АЛЛИСТЕР':[SK.l,HR.dbr,0],
-  'САЛАХ ':[SK.t,HR.blk,5],'ГАКПО':[SK.dk,HR.blk,0],'ДИАС':[SK.t,HR.blk,0],'СОБОСЛАИ':[SK.lt,HR.dbr,0],
+  'САЛАХ':[SK.t,HR.blk,5,2],'ВАН ДЕЙК':[SK.br,HR.blk,0,2],'АЛИССОН':[SK.l,HR.dbr,0,2],'НУНЬЕС':[SK.l,HR.dbr,5,1],
+  'АЛЕКСАНДЕР-АРНОЛЬД':[SK.t,HR.blk,0,1],'РОБЕРТСОН':[SK.lt,HR.gin,0,1],'МАК АЛЛИСТЕР':[SK.l,HR.dbr,0,2],
+  'САЛАХ ':[SK.t,HR.blk,5,2],'ГАКПО':[SK.dk,HR.blk,0,0],'ДИАС':[SK.t,HR.blk,0,1],'СОБОСЛАИ':[SK.lt,HR.dbr,0,0],
   // АПЛ прочие
-  'САКА':[SK.br,HR.blk,0],'ЭДЕГОР':[SK.lt,HR.bl,0],'РАЙС':[SK.l,HR.dbr,0],'МАРТИНЕЛЛИ':[SK.t,HR.blk,0],
-  'ЖЕЗУС':[SK.t,HR.blk,0],'ГАБРИЭЛ':[SK.dk,HR.blk,0],'ПАЛМЕР':[SK.l,HR.dbr,0],'ЭНЦО':[SK.l,HR.dbr,0],
-  'СТЕРЛИНГ':[SK.br,HR.blk,3],'ДЖЕКСОН':[SK.dk,HR.blk,0],'БРУНУ':[SK.l,HR.dbr,0],'РЭШФОРД':[SK.br,HR.blk,0],
-  'ОНАНА':[SK.dk,HR.blk,0],'ХОЙЛУНН':[SK.lt,HR.dbr,0],'ГАРНАЧО':[SK.l,HR.dbr,0],'КАЗЕМИРО':[SK.t,HR.blk,0],
-  'СОН':[SK.m,HR.blk,0],'МЭДДИСОН':[SK.lt,HR.dbr,0],'РОМЕРО':[SK.l,HR.dbr,0],'РИШАРЛИСОН':[SK.t,HR.blk,0],
+  'САКА':[SK.br,HR.blk,0,0],'ЭДЕГОР':[SK.lt,HR.bl,0,1],'РАЙС':[SK.l,HR.dbr,0,1],'МАРТИНЕЛЛИ':[SK.t,HR.blk,0,0],
+  'ЖЕЗУС':[SK.t,HR.blk,0,1],'ГАБРИЭЛ':[SK.dk,HR.blk,0,1],'ПАЛМЕР':[SK.l,HR.dbr,0,1],'ЭНЦО':[SK.l,HR.dbr,0,1],
+  'СТЕРЛИНГ':[SK.br,HR.blk,3,0],'ДЖЕКСОН':[SK.dk,HR.blk,0,0],'БРУНУ':[SK.l,HR.dbr,0,1],'РЭШФОРД':[SK.br,HR.blk,0,1],
+  'ОНАНА':[SK.dk,HR.blk,0,1],'ХОЙЛУНН':[SK.lt,HR.dbr,0,0],'ГАРНАЧО':[SK.l,HR.dbr,0,0],'КАЗЕМИРО':[SK.t,HR.blk,1,2],
+  'СОН':[SK.m,HR.blk,0,0],'МЭДДИСОН':[SK.lt,HR.dbr,0,1],'РОМЕРО':[SK.l,HR.dbr,0,1],'РИШАРЛИСОН':[SK.t,HR.blk,0,0],
   // Серия А
-  'ЛАУТАРО':[SK.t,HR.blk,0],'ТЮРАМ':[SK.dk,HR.blk,0],'БАРЕЛЛА':[SK.l,HR.dbr,0],'ЧАЛХАНОГЛУ':[SK.l,HR.dbr,0],
-  'БАСТОНИ':[SK.l,HR.dbr,0],'ЛЕАН':[SK.dk,HR.blk,0],'ЖИРУ':[SK.lt,HR.br,0],'ТЕО':[SK.t,HR.blk,0],
-  'ПУЛИШИЧ':[SK.lt,HR.br,0],'МЕНЬЯН':[SK.dk,HR.blk,0],'ВЛАХОВИЧ':[SK.lt,HR.br,0],'КЬЕЗА':[SK.l,HR.dbr,0],
-  'ЩЕНСНЫ':[SK.lt,HR.br,0],'ОСИМХЕН':[SK.dk,HR.blk,0],'КВАРАЦХЕЛИЯ':[SK.l,HR.dbr,0],'ЛУКАКУ':[SK.dk,HR.blk,3],
-  'ДИБАЛА':[SK.l,HR.dbr,0],'ПЕЛЛЕГРИНИ':[SK.l,HR.dbr,0],'КОПМЕЙНЕРС':[SK.lt,HR.bl,0],'ЛУКМАН':[SK.dk,HR.blk,0],
+  'ЛАУТАРО':[SK.t,HR.blk,0,2],'ТЮРАМ':[SK.dk,HR.blk,0,0],'БАРЕЛЛА':[SK.l,HR.dbr,0,1],'ЧАЛХАНОГЛУ':[SK.l,HR.dbr,0,1],
+  'БАСТОНИ':[SK.l,HR.dbr,0,0],'ЛЕАН':[SK.dk,HR.blk,0,0],'ЖИРУ':[SK.lt,HR.br,0,2],'ТЕО':[SK.t,HR.blk,0,0],
+  'ПУЛИШИЧ':[SK.lt,HR.br,0,1],'МЕНЬЯН':[SK.dk,HR.blk,0,0],'ВЛАХОВИЧ':[SK.lt,HR.br,0,0],'КЬЕЗА':[SK.l,HR.dbr,0,1],
+  'ЩЕНСНЫ':[SK.lt,HR.br,0,2],'ОСИМХЕН':[SK.dk,HR.blk,0,0],'КВАРАЦХЕЛИЯ':[SK.l,HR.dbr,0,1],'ЛУКАКУ':[SK.dk,HR.blk,3,1],
+  'ДИБАЛА':[SK.l,HR.dbr,0,2],'ПЕЛЛЕГРИНИ':[SK.l,HR.dbr,0,1],'КОПМЕЙНЕРС':[SK.lt,HR.bl,0,0],'ЛУКМАН':[SK.dk,HR.blk,0,0],
   // Атлетико/прочие Ла Лига
-  'ГРИЗМАНН':[SK.l,HR.dbr,0],'ОБЛАК':[SK.lt,HR.br,0],'МОРАТА':[SK.l,HR.dbr,0],'ДЕ ПАУЛЬ':[SK.l,HR.dbr,1],
-  'ИСКО':[SK.l,HR.dbr,0],'РАМОС':[SK.l,HR.dbr,1],
+  'ГРИЗМАНН':[SK.l,HR.dbr,0,2],'ОБЛАК':[SK.lt,HR.br,0,1],'МОРАТА':[SK.l,HR.dbr,0,2],'ДЕ ПАУЛЬ':[SK.l,HR.dbr,1,2],
+  'ИСКО':[SK.l,HR.dbr,0,2],'РАМОС':[SK.l,HR.dbr,1,2],
   // ещё Бундеслига
-  'УЛЬРАЙХ':[SK.lt,HR.br,3],'ПАВЛОВИЧ':[SK.l,HR.dbr,0],'ГЕРРЕЙРО':[SK.l,HR.dbr,0],'КОБЕЛЬ':[SK.lt,HR.dbr,0],
-  'ХУММЕЛЬС':[SK.lt,HR.br,1],'ШЛОТТЕРБЕК':[SK.lt,HR.dbr,0],'РАУМ':[SK.lt,HR.dbr,0],'ЗАБИТЦЕР':[SK.lt,HR.dbr,0],
-  'ГРАДЕЦКИ':[SK.lt,HR.br,0],'ТАХ':[SK.dk,HR.blk,0],'ГРИМАЛЬДО':[SK.l,HR.dbr,0],'ФРИМПОНГ':[SK.br,HR.blk,2],
-  'ДЖАКА':[SK.l,HR.dbr,0],'ШИК':[SK.lt,HR.br,0],'ГУЛАЧИ':[SK.lt,HR.br,0],'ОРБАН':[SK.l,HR.dbr,0],
-  'ШЕШКО':[SK.lt,HR.dbr,0],'ГИРАССИ':[SK.dk,HR.blk,0],'УНДАВ':[SK.l,HR.dbr,0],'ТРАПП':[SK.lt,HR.br,0],
-  'ГЁТЦЕ':[SK.l,HR.dbr,0],'ЭКИТИКЕ':[SK.dk,HR.blk,0],
+  'УЛЬРАЙХ':[SK.lt,HR.br,3,1],'ПАВЛОВИЧ':[SK.l,HR.dbr,0,0],'ГЕРРЕЙРО':[SK.l,HR.dbr,0,1],'КОБЕЛЬ':[SK.lt,HR.dbr,0,0],
+  'ШЛОТТЕРБЕК':[SK.lt,HR.dbr,0,1],'РАУМ':[SK.lt,HR.dbr,0,1],'ЗАБИТЦЕР':[SK.lt,HR.dbr,0,1],
+  'ГРАДЕЦКИ':[SK.lt,HR.br,0,1],'ТАХ':[SK.dk,HR.blk,0,0],'ГРИМАЛЬДО':[SK.l,HR.dbr,0,1],'ФРИМПОНГ':[SK.br,HR.blk,2,0],
+  'ДЖАКА':[SK.l,HR.dbr,0,2],'ШИК':[SK.lt,HR.br,0,1],'ГУЛАЧИ':[SK.lt,HR.br,0,1],'ОРБАН':[SK.l,HR.dbr,0,1],
+  'ШЕШКО':[SK.lt,HR.dbr,0,0],'ГИРАССИ':[SK.dk,HR.blk,0,1],'УНДАВ':[SK.l,HR.dbr,0,1],'ТРАПП':[SK.lt,HR.br,0,1],
+  'ГЁТЦЕ':[SK.l,HR.dbr,0,1],'ЭКИТИКЕ':[SK.dk,HR.blk,0,0],
   // ещё Серия А / Ла Лига
-  'ЗОММЕР':[SK.lt,HR.br,0],'ДИМАРКО':[SK.l,HR.dbr,0],'МХИТАРЯН':[SK.l,HR.dbr,0],'ДУМФРИС':[SK.br,HR.blk,5],
-  'ТОМОРИ':[SK.dk,HR.blk,0],'МЕРЕТ':[SK.lt,HR.br,0],'ЛОБОТКА':[SK.lt,HR.dbr,0],'АНГИССА':[SK.dk,HR.blk,0],
-  'ТЕР ШТЕГЕН ':[SK.lt,HR.br,0],'ПЕНЬЯ':[SK.l,HR.dbr,0],'КРИСТЕНСЕН':[SK.lt,HR.bl,0],'ФЕЛИКС':[SK.l,HR.dbr,0],
+  'ЗОММЕР':[SK.lt,HR.br,0,1],'ДИМАРКО':[SK.l,HR.dbr,0,1],'МХИТАРЯН':[SK.l,HR.dbr,0,2],'ДУМФРИС':[SK.br,HR.blk,5,0],
+  'ТОМОРИ':[SK.dk,HR.blk,0,0],'МЕРЕТ':[SK.lt,HR.br,0,1],'ЛОБОТКА':[SK.lt,HR.dbr,0,1],'АНГИССА':[SK.dk,HR.blk,0,0],
+  'ТЕР ШТЕГЕН ':[SK.lt,HR.br,0,1],'ПЕНЬЯ':[SK.l,HR.dbr,0,1],'КРИСТЕНСЕН':[SK.lt,HR.bl,0,0],'ФЕЛИКС':[SK.l,HR.dbr,0,0],
+  // звёзды сборных (ЧМ) — внешность как в жизни
+  'МЕССИ':[SK.l,HR.br,0,2],'РОНАЛДУ':[SK.l,HR.dbr,0,0],'МБАППЕ':[SK.t,HR.dbr,0,0],'НЕЙМАР':[SK.t,HR.blk,0,1],
+  'СУАРЕС':[SK.l,HR.br,0,1],'Л.СУАРЕС':[SK.l,HR.br,0,1],'ДИ МАРИЯ':[SK.l,HR.br,1,1],'МАНЕ':[SK.dk,HR.blk,0,1],
+  'КАНТЕ':[SK.dk,HR.blk,3,0],'ФОФАНА':[SK.dk,HR.blk,0,0],'ХАЛАНД':[SK.lt,HR.bl2,7,1],
 };
 const nameHash = name => { let h=0; for (let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))>>>0; return h; };
 function lookFor(name) {
   const L = PLAYER_LOOKS[name];
-  if (L) return { skin:L[0], hair:L[1], style:L[2] };
+  if (L) return { skin:L[0], hair:L[1], style:L[2], beard:L[3]||0 };
   const h = nameHash(name);
   const skins = [SK.lt,SK.l,SK.l,SK.m,SK.m,SK.t,SK.br,SK.dk];
   const hairs = [HR.blk,HR.dbr,HR.dbr,HR.br,HR.lbr,HR.bl];
-  const styles = [0,0,0,0,1,3,5];
-  return { skin:skins[h%skins.length], hair:hairs[(h>>3)%hairs.length], style:styles[(h>>6)%styles.length] };
+  const styles = [0,0,0,0,1,3,5,6];
+  const beards = [0,0,0,1,1,2];
+  return { skin:skins[h%skins.length], hair:hairs[(h>>3)%hairs.length], style:styles[(h>>6)%styles.length], beard:beards[(h>>9)%beards.length] };
 }
 /* фирменное празднование гола у каждого игрока (стили 0-16) */
 const CELEBS = {
