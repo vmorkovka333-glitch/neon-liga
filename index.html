@@ -4788,10 +4788,12 @@ function applySquad() {                    // старт NEON из SAVE.squad + 
 }
 const ovrCls = o => o >= 85 ? 'o3' : o >= 75 ? 'o2' : 'o1';
 const rateCol = r => r >= 7.5 ? '#b8f335' : r >= 6 ? '#dbe5f5' : '#ff6a4d';
-// активная скамейка: на ЧМ — запасные сборной, иначе твой клубный резерв
-const activeBench = () => (matchMode === 'world' && SAVE.world)
-  ? worldSquadIds(SAVE.world.nation).bench
-  : SAVE.squad.bench;
+// активная скамейка: ЧМ — запасные сборной; карьера игрока — резерв клуба карьеры; иначе твой клубный резерв
+const activeBench = () => {
+  if (matchMode === 'world' && SAVE.world) return worldSquadIds(SAVE.world.nation).bench;
+  if (matchMode === 'pcareer' && SAVE.pcareer) return (squadForClub(SAVE.pcareer.club) || { bench: SAVE.squad.bench }).bench;
+  return SAVE.squad.bench;
+};
 
 function renderLineup() {
   document.getElementById('subsleft').textContent = subsLeft;
